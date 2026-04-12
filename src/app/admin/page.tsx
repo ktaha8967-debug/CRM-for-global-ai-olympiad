@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import { 
   Shield, 
   Users, 
@@ -18,58 +20,238 @@ import {
   MoreVertical,
   Key,
   X,
-  Star
+  Star,
+  DollarSign
 } from "lucide-react";
 
 // Mock data for Admin Section
 const initialSystemUsers = [
-  { id: "U-1", name: "Super Admin", email: "admin@gaio.uk", role: "SUPER_ADMIN", status: "Active", lastLogin: "2 mins ago" },
-  { id: "U-2", name: "James Wilson", email: "james@teched.uk", role: "COUNTRY_DIRECTOR", status: "Active", lastLogin: "1 hour ago" },
-  { id: "U-3", name: "Sarah Jenkins", email: "s.jenkins@mit.edu", role: "VOLUNTEER_LEAD", status: "Inactive", lastLogin: "3 days ago" },
-  { id: "U-4", name: "Yuki Tanaka", email: "tanaka@jaif.jp", role: "REGIONAL_COORDINATOR", status: "Active", lastLogin: "5 hours ago" },
+  { id: "U-1", name: "Super Admin", email: "admin@gaio.uk", roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"], status: "Active", lastLogin: "Just Now" },
+  { id: "U-X", name: "Alexander Vance", email: "a.vance@gaio.uk", password: "admin", roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"], status: "Active", lastLogin: "Just Now" },
+  { id: "U-2", name: "James Wilson", email: "james@teched.uk", roles: ["COUNTRY_DIRECTOR"], status: "Active", lastLogin: "1 hour ago" },
+  { id: "U-3", name: "Sarah Jenkins", email: "s.jenkins@mit.edu", roles: ["VOLUNTEER_LEAD"], status: "Inactive", lastLogin: "3 days ago" },
+  { id: "U-5", name: "Marco Rossi", email: "m.rossi@organiser.it", roles: ["ORGANISER", "EVENT_MANAGER"], status: "Active", lastLogin: "15 mins ago" },
 ];
 
-const auditLogs = [
-  { id: 1, user: "Super Admin", action: "Deleted Organiser ORG-009", time: "10:45 AM", severity: "HIGH" },
-  { id: 2, user: "James Wilson", action: "Updated Event EVT-002", time: "09:30 AM", severity: "LOW" },
-  { id: 3, user: "System", action: "Backup completed successfully", time: "03:00 AM", severity: "INFO" },
-  { id: 4, user: "Super Admin", action: "Changed Volunteer Status V-001", time: "Yesterday", severity: "MEDIUM" },
+const availableRoles = [
+  "SUPER_ADMIN", "GLOBAL_ADMIN", "REGIONAL_COORDINATOR", "COUNTRY_DIRECTOR", 
+  "VOLUNTEER_LEAD", "ORGANISER", "EVENT_MANAGER", "SPONSOR_PARTNER"
+];
+
+const systemModules = [
+  "Global Dashboard",
+  "Global Communication",
+  "Global Mailbox",
+  "Country Network",
+  "Organiser Management",
+  "Organiser Mailbox",
+  "Sponsors & Partners",
+  "Sponsor Mailbox",
+  "Tender Management",
+  "Event Management",
+  "Volunteer Network",
+  "Volunteer Mailbox",
+  "Recognition",
+  "Settings"
+];
+
+const initialAuditLogs = [
+  { id: 1, user: "Super Admin", action: "System Infrastructure Initialized", time: "08:00 AM", severity: "INFO" },
+  { id: 2, user: "Super Admin", action: "Global Security Matrix Online", time: "08:05 AM", severity: "HIGH" },
 ];
 
 export default function AdminDashboard() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("OVERVIEW");
-  
-  // Real Data Aggregation Logic
-  const [financialStats, setFinancialStats] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const sponsors = JSON.parse(localStorage.getItem('gaio_sponsors') || '[]');
-      const events = JSON.parse(localStorage.getItem('gaio_events') || '[]');
-      
-      const totalSponsorship = sponsors.reduce((acc: number, s: any) => {
-        const val = parseInt(s.funding.replace(/[^0-9]/g, '')) || 0;
-        return acc + val;
-      }, 0);
 
-      const opSpend = events.length * 250000; // Simulating $250k per event
-      const globalBudget = totalSponsorship * 1.5; // Simulating 50% matched funding
-
-      return {
-        totalSponsorship,
-        opSpend,
-        globalBudget,
-        sponsorCount: sponsors.length
-      };
+  useEffect(() => {
+    if (!isLoading && (!user || (user.role !== 'SUPER_ADMIN' && !user.roles?.includes('SUPER_ADMIN')))) {
+      router.push('/');
     }
-    return { totalSponsorship: 8920000, opSpend: 3120450, globalBudget: 12450000, sponsorCount: 18 };
-  });
+  }, [user, isLoading, router]);
+
+  if (isLoading || !user || (user.role !== 'SUPER_ADMIN' && !user.roles?.includes('SUPER_ADMIN'))) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-[#0a0a0a]">
+        <div className="text-center space-y-6">
+          <div className="h-24 w-24 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto animate-bounce">
+            <Shield className="h-12 w-12 text-red-600" />
+          </div>
+          <h1 className="text-4xl font-black uppercase tracking-tighter italic text-gray-900 dark:text-white">Security Violation</h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Restricted Access • Super Admin Only</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="px-10 py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl transition-all hover:scale-105"
+          >
+            Back to Safe Zone
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // USER MANAGEMENT STATE
-  const [systemUsers, setSystemUsers] = useState(initialSystemUsers);
+  const [systemUsers, setSystemUsers] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('gaio_system_users_v3');
+      if (saved) {
+        const users = JSON.parse(saved);
+        return users.map((u: any) => ({
+          ...u,
+          allowedSections: u.allowedSections || (u.roles?.includes('SUPER_ADMIN') ? systemModules : ["Global Dashboard", "Settings"]),
+          roles: u.roles || (u.role ? [u.role] : [])
+        }));
+      }
+    }
+    return initialSystemUsers.map(u => ({ 
+      ...u, 
+      allowedSections: u.roles?.includes('SUPER_ADMIN') ? systemModules : ["Global Dashboard", "Settings"],
+      roles: (u as any).roles || ((u as any).role ? [(u as any).role] : [])
+    }));
+  });
+
+  // PERMISSIONS MATRIX STATE
+  const [permissionsMatrix, setPermissionsMatrix] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('gaio_permissions_matrix');
+      if (saved) return JSON.parse(saved);
+    }
+    // Default matrix: Admin has everything
+    const matrix: any = {};
+    systemModules.forEach(mod => {
+      matrix[mod] = { SUPER_ADMIN: true, GLOBAL_ADMIN: true };
+    });
+    return matrix;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gaio_system_users_v3', JSON.stringify(systemUsers));
+  }, [systemUsers]);
+
+  useEffect(() => {
+    localStorage.setItem('gaio_permissions_matrix', JSON.stringify(permissionsMatrix));
+  }, [permissionsMatrix]);
+
+  // REAL-TIME ANALYTICS & STATUS STATE
+  const [counts, setCounts] = useState({ countries: 0, organisers: 0, events: 0, volunteers: 0 });
+  const [financials, setFinancials] = useState({
+    totalBudget: 15000000,
+    totalSponsorships: 0,
+    operationalSpend: 0,
+    sponsorBreakdown: [] as any[],
+    eventSpendBreakdown: [] as any[],
+    regionalFunding: [] as any[]
+  });
+  const [latencies, setLatencies] = useState({ api: "24ms", db: "12ms", smtp: "115ms", imap: "450ms" });
+  const [auditLogs, setLogs] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('gaio_audit_logs');
+      return saved ? JSON.parse(saved) : initialAuditLogs;
+    }
+    return initialAuditLogs;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gaio_audit_logs', JSON.stringify(auditLogs));
+  }, [auditLogs]);
+
+  // LIVE UPDATES EFFECT
+  useEffect(() => {
+    const updateData = () => {
+      // 1. Fetch Real Counts
+      const countries = JSON.parse(localStorage.getItem('gaio_countries') || '[]');
+      const organisers = JSON.parse(localStorage.getItem('gaio_organisers') || '[]');
+      const eventsData = JSON.parse(localStorage.getItem('gaio_events_core_simple_v2') || '{"events":[], "logistics": {}}');
+      const volunteers = JSON.parse(localStorage.getItem('gaio_volunteers_v2') || '[]');
+      const sponsors = JSON.parse(localStorage.getItem('gaio_sponsors') || '[]');
+      
+      setCounts({
+        countries: countries.length || 84,
+        organisers: organisers.length || 124,
+        events: eventsData.events?.length || 12,
+        volunteers: volunteers.length || 856
+      });
+
+      // 2. Calculate Financials
+      let totalSponsorships = 0;
+      const sponsorBreakdown = sponsors.map((s: any) => {
+        const amount = parseInt(s.funding?.replace(/[^0-9]/g, '') || '0');
+        totalSponsorships += amount;
+        return { name: s.name, amount, tier: s.tier, industry: s.industry };
+      });
+
+      let operationalSpend = 0;
+      const eventSpendBreakdown = eventsData.events?.map((e: any) => {
+        const log = eventsData.logistics?.[e.id];
+        const spent = log?.expenses?.reduce((sum: number, exp: any) => sum + (exp.cost || 0), 0) || 0;
+        operationalSpend += spent;
+        return { name: e.name, spent, region: e.region };
+      }) || [];
+
+      // Regional Distribution Logic
+      const regions = ["Europe", "Asia Pacific", "Americas", "Middle East & Africa"];
+      const regionalFunding = regions.map(r => {
+        const regionEvents = eventSpendBreakdown.filter(e => e.region === r);
+        const amount = regionEvents.reduce((sum, e) => sum + e.spent, 0);
+        return { region: r, amount: `$${(amount/1000000).toFixed(1)}M`, percent: Math.min(100, Math.floor((amount / (operationalSpend || 1)) * 100)) };
+      });
+
+      setFinancials({
+        totalBudget: 15000000, // Strategic Target
+        totalSponsorships,
+        operationalSpend,
+        sponsorBreakdown,
+        eventSpendBreakdown,
+        regionalFunding
+      });
+
+      // 3. Simulate Real-time Latency Fluctuations
+      setLatencies({
+        api: `${Math.floor(Math.random() * 15 + 15)}ms`,
+        db: `${Math.floor(Math.random() * 10 + 5)}ms`,
+        smtp: `${Math.floor(Math.random() * 50 + 90)}ms`,
+        imap: `${Math.floor(Math.random() * 100 + 380)}ms`,
+      });
+    };
+
+    updateData();
+    const interval = setInterval(updateData, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   const [userSearch, setUserSearch] = useState("");
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [newUser, setNewUser] = useState({ name: "", email: "", role: "COUNTRY_DIRECTOR" });
+  const [newUser, setNewUser] = useState({ 
+    name: "", 
+    email: "", 
+    roles: ["COUNTRY_DIRECTOR"] as string[], 
+    allowedSections: ["Global Dashboard", "Settings"] as string[],
+    password: "" 
+  });
+  const [generatedInviteLink, setGeneratedLink] = useState("");
+  const [newInviteData, setNewInviteData] = useState({ roles: [] as string[], sections: ["Global Dashboard", "Settings"] as string[] });
+
+  const handleCreateInvite = () => {
+    if (newInviteData.roles.length === 0) return alert("Please select at least one role for this invite.");
+    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const invite = {
+      token,
+      roles: newInviteData.roles,
+      allowedSections: newInviteData.sections,
+      used: false,
+      createdAt: new Date().toISOString()
+    };
+    const existing = JSON.parse(localStorage.getItem('gaio_invites') || '[]');
+    localStorage.setItem('gaio_invites', JSON.stringify([...existing, invite]));
+    
+    const url = `${window.location.origin}/invite/${token}`;
+    setGeneratedLink(url);
+    addLog(`Generated invitation link for roles: ${newInviteData.roles.join(", ")}`, "MEDIUM");
+  };
 
   // ANNOUNCEMENTS STATE
   const [announcement, setAnnouncement] = useState({ title: "", content: "", audience: "All Users (Global)", priority: "Normal (Informational)", emailSync: false });
@@ -80,20 +262,22 @@ export default function AdminDashboard() {
   // GLOBAL MAIL STATE
   const [activeMailDept, setActiveMailDept] = useState("global");
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const depts = [
+    { id: 'global', name: 'Global Main', email: 'admin@gaio.uk' },
+    { id: 'organisers', name: 'Organisers', email: 'organisers@gaio.uk' },
+    { id: 'sponsors', name: 'Sponsors', email: 'partners@gaio.uk' },
+    { id: 'volunteers', name: 'Volunteers', email: 'volunteers@gaio.uk' },
+  ];
   const [mailAccounts, setMailAccounts] = useState(() => {
-    const depts = [
-      { id: 'global', name: 'Global Main', email: 'admin@gaio.uk' },
-      { id: 'organisers', name: 'Organisers', email: 'organisers@gaio.uk' },
-      { id: 'sponsors', name: 'Sponsors', email: 'partners@gaio.uk' },
-      { id: 'volunteers', name: 'Volunteers', email: 'volunteers@gaio.uk' },
-    ];
-    
     if (typeof window !== 'undefined') {
+      const key = 'gaioMailAccounts_Status'; // unified key
+      const saved = localStorage.getItem(key);
+      // Logic to sync with individual config keys
       return depts.map(d => {
-        const key = d.id === 'global' ? 'gaioMailConfig' : `gaioMailConfig_${d.id}`;
-        const saved = localStorage.getItem(key);
-        if (saved) {
-          const config = JSON.parse(saved);
+        const configKey = d.id === 'global' ? 'gaioMailConfig' : `gaioMailConfig_${d.id}`;
+        const configSaved = localStorage.getItem(configKey);
+        if (configSaved) {
+          const config = JSON.parse(configSaved);
           return { ...d, email: config.user, status: 'Connected' };
         }
         return { ...d, status: 'Not Configured' };
@@ -101,6 +285,7 @@ export default function AdminDashboard() {
     }
     return depts.map(d => ({ ...d, status: 'Not Configured' }));
   });
+
   const [tempMailConfig, setTempMailConfig] = useState({
     smtpHost: "smtp.gmail.com",
     smtpPort: "587",
@@ -109,6 +294,17 @@ export default function AdminDashboard() {
     user: "",
     pass: ""
   });
+
+  const addLog = (action: string, severity: string = "INFO") => {
+    const newLog = {
+      id: Date.now(),
+      user: "Super Admin",
+      action,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      severity
+    };
+    setLogs((prev: any) => [newLog, ...prev].slice(0, 50));
+  };
 
   const getDeptKey = (dept: string) => {
     if (dept === 'global') return 'gaioMailConfig';
@@ -137,52 +333,82 @@ export default function AdminDashboard() {
     e.preventDefault();
     localStorage.setItem(getDeptKey(activeMailDept), JSON.stringify(tempMailConfig));
     setIsMailModalOpen(false);
+    addLog(`Configured ${activeMailDept} mailbox`, "MEDIUM");
+    
+    // Refresh mail accounts status
+    setMailAccounts(depts.map(d => {
+      const key = d.id === 'global' ? 'gaioMailConfig' : `gaioMailConfig_${d.id}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const config = JSON.parse(saved);
+        return { ...d, email: config.user, status: 'Connected' };
+      }
+      return { ...d, status: 'Not Configured' };
+    }));
+    
     alert(`Configuration for ${activeMailDept.toUpperCase()} Mailbox has been pushed successfully! It is now automatically configured.`);
   };
 
   const stats = [
     { label: "Total System Users", value: systemUsers.length.toString(), icon: Users, color: "text-blue-600" },
-    { label: "Active Countries", value: "84", icon: Globe, color: "text-green-600" },
+    { label: "Active Countries", value: counts.countries.toString(), icon: Globe, color: "text-green-600" },
     { label: "Security Alerts", value: "0", icon: Shield, color: "text-emerald-600" },
-    { label: "Storage Used", value: "42%", icon: Database, color: "text-purple-600" },
+    { label: "Active Volunteers", value: counts.volunteers.toString(), icon: Activity, color: "text-purple-600" },
   ];
 
-  const filteredUsers = systemUsers.filter(u => 
+  const filteredUsers = systemUsers.filter((u: any) => 
     u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
     u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.role.toLowerCase().includes(userSearch.toLowerCase())
+    u.roles.some((r: string) => r.toLowerCase().includes(userSearch.toLowerCase()))
   );
 
   const handleUpdateUser = (e: React.FormEvent) => {
     e.preventDefault();
-    setSystemUsers(systemUsers.map(u => u.id === selectedUser.id ? selectedUser : u));
+    setSystemUsers(systemUsers.map((u: any) => u.id === selectedUser.id ? selectedUser : u));
+    addLog(`Updated security clearance for ${selectedUser.name}`, "MEDIUM");
     setIsRoleModalOpen(false);
   };
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newUser.password || newUser.roles.length === 0) {
+      alert("Please provide a password and select at least one role.");
+      return;
+    }
     const createdUser = {
       id: `U-${Date.now()}`,
       name: newUser.name,
       email: newUser.email,
-      role: newUser.role,
+      roles: newUser.roles,
+      allowedSections: newUser.allowedSections,
+      password: newUser.password,
       status: "Active",
       lastLogin: "Never"
     };
     setSystemUsers([createdUser, ...systemUsers]);
+    addLog(`Granted system access to ${newUser.name}`, "HIGH");
     setIsAddUserModalOpen(false);
-    setNewUser({ name: "", email: "", role: "COUNTRY_DIRECTOR" });
+    setNewUser({ 
+      name: "", 
+      email: "", 
+      roles: ["COUNTRY_DIRECTOR"], 
+      allowedSections: ["Global Dashboard", "Settings"],
+      password: "" 
+    });
   };
 
   const handleDeleteUser = (id: string) => {
     if (confirm("Are you sure you want to completely remove this user from the system?")) {
-      setSystemUsers(systemUsers.filter(u => u.id !== id));
+      const user = systemUsers.find((u: any) => u.id === id);
+      setSystemUsers(systemUsers.filter((u: any) => u.id !== id));
+      addLog(`Revoked system access for ${user?.name}`, "HIGH");
       setIsRoleModalOpen(false);
     }
   };
 
   const handleBroadcast = () => {
     if (!announcement.title || !announcement.content) return alert("Please fill in all fields");
+    addLog(`Broadcast Sent: ${announcement.title}`, "MEDIUM");
     alert(`Broadcast Sent: ${announcement.title}\nTo: ${announcement.audience}\nPriority: ${announcement.priority}\nEmail Sync: ${announcement.emailSync}`);
     setAnnouncement({ title: "", content: "", audience: "All Users (Global)", priority: "Normal (Informational)", emailSync: false });
   };
@@ -191,6 +417,7 @@ export default function AdminDashboard() {
     if (confirm(`Are you sure you want to reset the global mail configuration for ${dept}? This will disconnect their inbox.`)) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem(`gaioMailConfig_${dept}`);
+        addLog(`Reset mail config for ${dept}`, "MEDIUM");
         alert(`${dept} mail configuration reset successfully.`);
       }
     }
@@ -263,10 +490,10 @@ export default function AdminDashboard() {
               </div>
               <div className="space-y-4">
                 {[
-                  { name: "API Gateway", status: "99.9% Uptime", latency: "24ms" },
-                  { name: "Database Cluster", status: "Healthy", latency: "12ms" },
-                  { name: "SMTP Relay Server", status: "Operational", latency: "115ms" },
-                  { name: "IMAP Sync Engine", status: "Busy", latency: "450ms" },
+                  { name: "API Gateway", status: "99.9% Uptime", latency: latencies.api },
+                  { name: "Database Cluster", status: "Healthy", latency: latencies.db },
+                  { name: "SMTP Relay Server", status: "Operational", latency: latencies.smtp },
+                  { name: "IMAP Sync Engine", status: "Busy", latency: latencies.imap },
                 ].map((s) => (
                   <div key={s.name} className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-zinc-900/50">
                     <div className="flex flex-col">
@@ -286,9 +513,11 @@ export default function AdminDashboard() {
                 Recent Audit Trail
               </h2>
               <div className="space-y-6">
-                {auditLogs.map((log) => (
+                {auditLogs.slice(0, 4).map((log: any) => (
                   <div key={log.id} className="relative pl-6 pb-6 last:pb-0 border-l border-gray-100 dark:border-zinc-800">
-                    <div className="absolute left-[-5px] top-0 h-2.5 w-2.5 rounded-full bg-blue-500"></div>
+                    <div className={`absolute left-[-5px] top-0 h-2.5 w-2.5 rounded-full ${
+                      log.severity === 'HIGH' ? 'bg-red-500' : log.severity === 'MEDIUM' ? 'bg-amber-500' : 'bg-blue-500'
+                    }`}></div>
                     <div className="text-xs font-bold text-gray-900 dark:text-white">{log.action}</div>
                     <div className="mt-1 text-[10px] text-gray-500 flex justify-between">
                       <span>{log.user}</span>
@@ -321,13 +550,22 @@ export default function AdminDashboard() {
                 className="w-full rounded-lg border-0 py-2.5 pl-10 pr-3 text-sm ring-1 ring-inset ring-gray-200 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" 
               />
             </div>
-            <button 
-              onClick={() => setIsAddUserModalOpen(true)}
-              className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-500"
-            >
-              <Key className="h-4 w-4" />
-              Grant Access
-            </button>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => { setGeneratedLink(""); setIsInviteModalOpen(true); }}
+                className="bg-gray-900 dark:bg-white text-white dark:text-black px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-600 hover:text-white transition-all shadow-xl"
+              >
+                <Star className="h-4 w-4" />
+                Create Invite Link
+              </button>
+              <button 
+                onClick={() => setIsAddUserModalOpen(true)}
+                className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-500"
+              >
+                <Key className="h-4 w-4" />
+                Grant Access
+              </button>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#111]">
@@ -342,7 +580,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-[#111]">
-                {filteredUsers.map((user) => (
+                {filteredUsers.map((user: any) => (
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -356,25 +594,40 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-[10px] font-bold ${
-                        user.role === 'SUPER_ADMIN' ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-zinc-300'
-                      }`}>
-                        {user.role}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {user.roles.map((role: string) => (
+                          <span key={role} className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-tighter ${
+                            role === 'SUPER_ADMIN' ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                          }`}>
+                            {role.replace('_', ' ')}
+                          </span>
+                        ))}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-500">{user.lastLogin}</td>
+                    <td className="px-6 py-4 text-xs text-gray-500 font-bold">{user.lastLogin}</td>
                     <td className="px-6 py-4">
-                      <span className={`flex items-center gap-1.5 text-xs font-medium ${user.status === 'Active' ? 'text-green-600' : 'text-gray-400'}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${user.status === 'Active' ? 'bg-green-600' : 'bg-gray-400'}`}></span>
+                      <span className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest w-fit ${
+                        user.status === 'Active' 
+                        ? 'bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-900/30' 
+                        : 'bg-gray-50 text-gray-400 border border-gray-100 dark:bg-zinc-800 dark:text-zinc-500 dark:border-zinc-700'
+                      }`}>
+                        {user.status === 'Active' ? (
+                          <div className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                          </div>
+                        ) : (
+                          <div className="h-2 w-2 rounded-full bg-gray-300 dark:bg-zinc-600"></div>
+                        )}
                         {user.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button 
                         onClick={() => { setSelectedUser(user); setIsRoleModalOpen(true); }}
-                        className="text-blue-600 hover:text-blue-500 dark:text-blue-400 font-bold text-xs"
+                        className="text-blue-600 hover:text-blue-500 dark:text-blue-400 font-black text-[10px] uppercase tracking-widest border-b-2 border-blue-600/20 hover:border-blue-600 transition-all"
                       >
-                        Edit Role
+                        Manage Access
                       </button>
                     </td>
                   </tr>
@@ -387,44 +640,51 @@ export default function AdminDashboard() {
 
       {activeTab === "PERMISSIONS" && (
         <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#111] overflow-hidden">
-            <div className="p-6 border-b dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900/50">
+          <div className="rounded-[3rem] border border-gray-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-[#0a0a0a] overflow-hidden">
+            <div className="p-10 border-b dark:border-zinc-800 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/50">
               <div>
-                <h2 className="text-lg font-bold">Global RBAC Matrix</h2>
-                <p className="text-xs text-gray-500">Define granular access permissions for each system role.</p>
+                <h2 className="text-3xl font-black uppercase tracking-tighter italic text-gray-900 dark:text-white">Global RBAC Matrix</h2>
+                <p className="text-xs text-gray-500 font-bold mt-2 uppercase tracking-widest">Configure granular system-wide module access permissions.</p>
               </div>
               <button 
-                onClick={() => alert("Permissions Matrix Saved successfully!")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                onClick={() => {
+                  localStorage.setItem('gaio_permissions_matrix', JSON.stringify(permissionsMatrix));
+                  addLog("Updated Global Permissions Matrix", "HIGH");
+                  alert("Security Matrix Synchronized Successfully!");
+                }}
+                className="bg-blue-600 text-white px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-xl shadow-blue-600/30 hover:bg-blue-500 transition-all"
               >
-                Save Matrix
+                Sync Matrix
               </button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-zinc-900/20">
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Module / Capability</th>
-                    {["ADMIN", "REGIONAL", "COUNTRY", "ORGANISER", "VOLUNTEER"].map(role => (
-                      <th key={role} className="px-4 py-4 text-center text-[10px] font-bold text-gray-500 uppercase">{role}</th>
+                  <tr className="bg-white dark:bg-[#0a0a0a]">
+                    <th className="px-10 py-6 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest border-r dark:border-zinc-800">Capability Module</th>
+                    {availableRoles.map(role => (
+                      <th key={role} className="px-4 py-6 text-center text-[9px] font-black text-blue-600 uppercase tracking-tighter leading-none w-24">
+                        {role.replace('_', '\n')}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
-                  {[
-                    "Manage Countries", "Audit System Logs", "Configure SMTP/IMAP", 
-                    "Award Tenders", "Delete Entities", "Broadcast Announcements",
-                    "Manage Volunteers", "Export Data", "Access Financials"
-                  ].map((perm) => (
-                    <tr key={perm} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/30">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{perm}</td>
-                      {["ADMIN", "REGIONAL", "COUNTRY", "ORGANISER", "VOLUNTEER"].map(role => (
-                        <td key={`${perm}-${role}`} className="px-4 py-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            defaultChecked={role === 'ADMIN' || (role === 'REGIONAL' && !perm.includes('SMTP'))}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 dark:border-zinc-700 dark:bg-zinc-900" 
-                          />
+                  {systemModules.map((mod) => (
+                    <tr key={mod} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
+                      <td className="px-10 py-6 text-xs font-black text-gray-700 dark:text-zinc-300 uppercase tracking-widest border-r dark:border-zinc-800 group-hover:text-blue-600">{mod}</td>
+                      {availableRoles.map(role => (
+                        <td key={`${mod}-${role}`} className="px-4 py-6 text-center">
+                          <button 
+                            onClick={() => togglePermission(mod, role)}
+                            className={`h-6 w-6 rounded-lg border-2 transition-all flex items-center justify-center mx-auto ${
+                              permissionsMatrix[mod]?.[role] 
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-lg' 
+                              : 'border-gray-200 dark:border-zinc-800 bg-transparent text-transparent hover:border-blue-300'
+                            }`}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
                         </td>
                       ))}
                     </tr>
@@ -439,47 +699,116 @@ export default function AdminDashboard() {
       {activeTab === "FINANCIALS" && (
         <div className="space-y-8 animate-in slide-in-from-left-4 duration-500">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#111]">
-              <div className="text-xs font-bold text-gray-500 uppercase mb-1">Global Budget 2026</div>
-              <div className="text-3xl font-black text-gray-900 dark:text-white">$12,450,000</div>
-              <div className="mt-2 text-xs text-green-600 font-bold">+8.4% vs last year</div>
+            <div className="p-8 rounded-[2rem] border-2 border-gray-100 bg-white dark:border-zinc-800 dark:bg-[#111] shadow-sm">
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Global Strategic Target</div>
+              <div className="text-4xl font-black text-gray-900 dark:text-white tracking-tighter">${(financials.totalBudget/1000000).toFixed(1)}M</div>
+              <div className="mt-3 text-xs text-blue-600 font-bold uppercase tracking-widest">FY 2026 Procurement</div>
             </div>
-            <div className="p-6 rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#111]">
-              <div className="text-xs font-bold text-gray-500 uppercase mb-1">Total Sponsorships</div>
-              <div className="text-3xl font-black text-blue-600">$8,920,000</div>
-              <div className="mt-2 text-xs text-gray-500">18 Global Partners</div>
+            <div className="p-8 rounded-[2rem] border-2 border-gray-100 bg-white dark:border-zinc-800 dark:bg-[#111] shadow-sm">
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Total Secured Funding</div>
+              <div className="text-4xl font-black text-green-600 tracking-tighter">${(financials.totalSponsorships/1000).toLocaleString()}K</div>
+              <div className="mt-3 text-xs text-gray-500 font-bold uppercase tracking-widest">{financials.sponsorBreakdown.length} Active Partners</div>
             </div>
-            <div className="p-6 rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#111]">
-              <div className="text-xs font-bold text-gray-500 uppercase mb-1">Operational Spend</div>
-              <div className="text-3xl font-black text-red-600">$3,120,450</div>
-              <div className="mt-2 text-xs text-gray-500">Includes compute & infrastructure</div>
+            <div className="p-8 rounded-[2rem] border-2 border-gray-100 bg-white dark:border-zinc-800 dark:bg-[#111] shadow-sm">
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Operational Spend</div>
+              <div className="text-4xl font-black text-red-600 tracking-tighter">${(financials.operationalSpend/1000).toLocaleString()}K</div>
+              <div className="mt-3 text-xs text-gray-500 font-bold uppercase tracking-widest">Real-time GL sync</div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#111] overflow-hidden">
-            <div className="p-6 border-b dark:border-zinc-800 flex justify-between items-center">
-              <h2 className="font-bold">Regional Funding Distribution</h2>
-              <button onClick={() => alert('Downloading Financial Report...')} className="text-xs font-bold text-blue-600">Export Report</button>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="rounded-[2.5rem] border-2 border-gray-100 bg-white dark:border-zinc-800 dark:bg-[#111] overflow-hidden shadow-sm">
+              <div className="p-8 border-b dark:border-zinc-800 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/50">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tighter italic">Sponsor Ledger</h2>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Direct revenue contributions</p>
+                </div>
+                <DollarSign className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                <table className="min-w-full divide-y-2 divide-gray-100 dark:divide-zinc-800">
+                  <thead className="bg-white dark:bg-[#111]">
+                    <tr>
+                      <th className="px-8 py-4 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Partner</th>
+                      <th className="px-8 py-4 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Contribution</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y-2 divide-gray-100 dark:divide-zinc-800">
+                    {financials.sponsorBreakdown.length > 0 ? financials.sponsorBreakdown.map((s, i) => (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors">
+                        <td className="px-8 py-5">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900 dark:text-white">{s.name}</span>
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{s.tier}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 text-right font-black text-gray-900 dark:text-white text-lg tracking-tighter">
+                          ${s.amount.toLocaleString()}
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={2} className="p-10 text-center text-gray-400 text-[10px] font-black uppercase italic">No sponsor data found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="p-6">
-              <div className="space-y-6">
-                {[
-                  { region: "Europe", amount: "$4.2M", percent: 75 },
-                  { region: "Asia Pacific", amount: "$3.8M", percent: 62 },
-                  { region: "Americas", amount: "$2.1M", percent: 45 },
-                  { region: "Middle East & Africa", amount: "$1.2M", percent: 30 },
-                ].map((r) => (
+
+            <div className="rounded-[2.5rem] border-2 border-gray-100 bg-white dark:border-zinc-800 dark:bg-[#111] overflow-hidden shadow-sm">
+              <div className="p-8 border-b dark:border-zinc-800 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/50">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tighter italic">Regional Allocation</h2>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Budget distribution by territory</p>
+                </div>
+                <Globe className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="p-8 space-y-8">
+                {financials.regionalFunding.map((r) => (
                   <div key={r.region}>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="font-bold">{r.region}</span>
-                      <span className="text-gray-500">{r.amount} allocated</span>
+                    <div className="flex justify-between text-xs mb-3">
+                      <span className="font-black uppercase tracking-widest text-gray-700 dark:text-zinc-300">{r.region}</span>
+                      <span className="font-black text-blue-600">{r.amount} utilized</span>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${r.percent}%` }}></div>
+                    <div className="w-full h-3 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden border dark:border-zinc-700">
+                      <div className="h-full bg-blue-600 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(37,99,235,0.4)]" style={{ width: `${r.percent}%` }}></div>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-[3rem] border-2 border-gray-100 bg-white dark:border-zinc-800 dark:bg-[#111] overflow-hidden shadow-sm">
+            <div className="p-8 border-b dark:border-zinc-800 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/50">
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-tighter italic">Event Expenditure Registry</h2>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Real-time spend tracking per managed event</p>
+              </div>
+              <Activity className="h-6 w-6 text-red-500" />
+            </div>
+            <div className="p-0">
+              <table className="min-w-full divide-y-2 divide-gray-100 dark:divide-zinc-800">
+                <thead className="bg-gray-50/20 dark:bg-zinc-900/20">
+                  <tr>
+                    <th className="px-10 py-4 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Managed Event</th>
+                    <th className="px-10 py-4 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Region</th>
+                    <th className="px-10 py-4 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Live Spend</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y-2 divide-gray-100 dark:divide-zinc-800">
+                  {financials.eventSpendBreakdown.length > 0 ? financials.eventSpendBreakdown.map((e, i) => (
+                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors">
+                      <td className="px-10 py-6 font-bold text-gray-900 dark:text-white">{e.name}</td>
+                      <td className="px-10 py-6 text-xs font-black uppercase text-gray-500 tracking-widest">{e.region}</td>
+                      <td className="px-10 py-6 text-right font-black text-red-500 text-lg tracking-tighter">
+                        ${e.spent.toLocaleString()}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={3} className="p-20 text-center text-gray-400 text-[10px] font-black uppercase italic">No active event expenditures recorded</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -563,43 +892,75 @@ export default function AdminDashboard() {
 
       {activeTab === "SYSTEM_LOGS" && (
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#111] overflow-hidden animate-in fade-in duration-500">
-          <div className="p-6 border-b dark:border-zinc-800 flex justify-between items-center">
-            <h2 className="text-lg font-bold">Comprehensive Audit Trail</h2>
-            <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-3 py-1.5 border dark:border-zinc-800 rounded-lg text-xs font-bold hover:bg-gray-50 dark:hover:bg-zinc-800">
+          <div className="p-6 border-b dark:border-zinc-800 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/50">
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-tighter italic text-gray-900 dark:text-white">Comprehensive Audit Trail</h2>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-1">Real-time log of all administrative and security actions</p>
+            </div>
+            <div className="flex gap-3">
+              <button className="flex items-center gap-2 px-4 py-2 border-2 dark:border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all">
                 <Filter className="h-3.5 w-3.5" /> Filter Logs
               </button>
               <button 
-                onClick={() => alert("Audit Logs exported to CSV!")}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white dark:bg-white dark:text-black rounded-lg text-xs font-bold"
+                onClick={() => {
+                  const csv = auditLogs.map((l: any) => `${l.time},${l.user},${l.action},${l.severity}`).join('\n');
+                  const blob = new Blob([`Timestamp,Operator,Action,Severity\n${csv}`], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `gaio_audit_log_${new Date().toISOString().split('T')[0]}.csv`;
+                  a.click();
+                  addLog("Exported Audit Logs to CSV", "INFO");
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white dark:bg-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl"
               >
                 Export CSV
               </button>
             </div>
           </div>
-          <div className="p-0">
+          <div className="p-0 overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-              <thead className="bg-gray-50 dark:bg-zinc-900/50">
+              <thead className="bg-white dark:bg-[#111]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Timestamp</th>
-                  <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Operator</th>
-                  <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Action Performed</th>
-                  <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">Severity</th>
-                  <th className="px-6 py-3 text-left text-[10px] font-bold text-gray-500 uppercase">IP Address</th>
+                  <th className="px-10 py-5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Timestamp</th>
+                  <th className="px-10 py-5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Operator</th>
+                  <th className="px-10 py-5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Action Performed</th>
+                  <th className="px-10 py-5 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Severity</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
-                {[1,2,3,4,5,6,7,8].map((i) => (
-                  <tr key={i} className="text-sm">
-                    <td className="px-6 py-4 text-gray-500 text-xs">2026-03-12 14:32:0{i}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">Super Admin</td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-zinc-400 font-mono text-[11px]">ADMIN_LOGIN_SUCCESS: Session created</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">INFO</span>
+              <tbody className="divide-y-2 divide-gray-100 dark:divide-zinc-800">
+                {auditLogs.length > 0 ? auditLogs.map((log: any) => (
+                  <tr key={log.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/5 transition-colors group">
+                    <td className="px-10 py-6 text-gray-500 font-bold text-xs tabular-nums">{log.time}</td>
+                    <td className="px-10 py-6">
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[10px] font-black text-blue-600">{log.user.charAt(0)}</div>
+                        <span className="font-bold text-gray-900 dark:text-white text-sm">{log.user}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-400 text-xs">192.168.1.10{i}</td>
+                    <td className="px-10 py-6 text-gray-600 dark:text-zinc-400 font-mono text-[11px] font-bold group-hover:text-blue-600 transition-colors">
+                      {log.action}
+                    </td>
+                    <td className="px-10 py-6">
+                      <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                        log.severity === 'HIGH' ? 'bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/20 dark:text-red-400' :
+                        log.severity === 'MEDIUM' ? 'bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/20 dark:text-amber-400' :
+                        'bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-400'
+                      }`}>
+                        {log.severity}
+                      </span>
+                    </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={4} className="py-24 text-center">
+                      <div className="flex flex-col items-center gap-4 opacity-30">
+                        <Activity className="h-12 w-12 text-gray-400" />
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Registry initialization in progress...</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -609,25 +970,27 @@ export default function AdminDashboard() {
       {activeTab === "ENTITY_CONTROL" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in zoom-in-95 duration-500">
           {[
-            { title: "Countries", count: 84, path: "/countries", icon: Globe },
-            { title: "Organisers", count: 124, path: "/organisers", icon: Users },
-            { title: "Events", count: 12, path: "/events", icon: CheckCircle2 },
-            { title: "Tenders", count: 5, path: "/tenders", icon: Database },
-            { title: "Sponsors", count: 18, path: "/sponsors", icon: Star },
-            { title: "Volunteers", count: 856, path: "/volunteers", icon: Activity },
+            { title: "Countries", count: counts.countries, path: "/countries", icon: Globe },
+            { title: "Organisers", count: counts.organisers, path: "/organisers", icon: Users },
+            { title: "Events", count: counts.events, path: "/events", icon: CheckCircle2 },
+            { title: "Tenders", count: JSON.parse(localStorage.getItem('gaio_tenders') || '[]').length, path: "/tenders", icon: Database },
+            { title: "Sponsors", count: JSON.parse(localStorage.getItem('gaio_sponsors') || '[]').length, path: "/sponsors", icon: Star },
+            { title: "Volunteers", count: counts.volunteers, path: "/volunteers", icon: Activity },
           ].map((entity) => (
-            <div key={entity.title} className="p-6 rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#111] hover:border-blue-500 transition-all group">
+            <div key={entity.title} className="p-6 rounded-2xl border border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#111] hover:border-blue-500 transition-all group shadow-sm hover:shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 group-hover:scale-110 transition-transform">
                   <entity.icon className="h-6 w-6" />
                 </div>
                 <button className="text-gray-400 hover:text-gray-600"><MoreVertical className="h-5 w-5" /></button>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">{entity.title}</h3>
-              <p className="text-sm text-gray-500 mb-6">{entity.count} Total Records</p>
-              <a href={entity.path} className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-50 dark:bg-zinc-900 rounded-xl text-sm font-bold hover:bg-blue-600 hover:text-white transition-colors">
-                Open Manager
-              </a>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white uppercase tracking-tighter italic">{entity.title}</h3>
+              <p className="text-[10px] font-black uppercase text-gray-400 mt-1">{entity.count} Active Records</p>
+              <div className="mt-6 pt-6 border-t dark:border-zinc-800">
+                <a href={entity.path} className="flex items-center justify-center gap-2 w-full py-3 bg-gray-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-lg">
+                  Open Governance Hub
+                </a>
+              </div>
             </div>
           ))}
         </div>
@@ -652,11 +1015,11 @@ export default function AdminDashboard() {
                     <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Department / Section</th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Assigned Email</th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Connection Status</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-bold text-gray-500 uppercase">Actions</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-bold uppercase text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-[#111]">
-                  {mailAccounts.map((acc) => (
+                  {mailAccounts.map((acc: any) => (
                     <tr key={acc.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                       <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">{acc.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-500 font-mono">{acc.email || 'None'}</td>
@@ -823,34 +1186,77 @@ export default function AdminDashboard() {
 
       {/* Add User Modal */}
       {isAddUserModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Grant Access</h2>
-              <button onClick={() => setIsAddUserModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8 rounded-[2.5rem] bg-white p-10 shadow-2xl dark:bg-[#0a0a0a] border-4 border-blue-600/10">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">Provision New Identity</h2>
+              <button onClick={() => setIsAddUserModalOpen(false)} className="p-2 bg-gray-50 dark:bg-zinc-900 rounded-xl text-gray-400"><X className="h-5 w-5" /></button>
             </div>
-            <form onSubmit={handleAddUser} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Full Name</label>
-                <input required type="text" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} className="w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+            <form onSubmit={handleAddUser} className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Full Name</label>
+                  <input required type="text" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-xl px-4 py-3 font-bold text-sm shadow-inner text-gray-900 dark:text-white" />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Secure Email</label>
+                  <input required type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-xl px-4 py-3 font-bold text-sm shadow-inner text-gray-900 dark:text-white" />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Email Address</label>
-                <input required type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} className="w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">System Roles</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-2 dark:border-zinc-800">
+                    {availableRoles.map(role => (
+                      <label key={role} className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={newUser.roles.includes(role)}
+                          onChange={(e) => {
+                            const roles = e.target.checked 
+                              ? [...newUser.roles, role]
+                              : newUser.roles.filter(r => r !== role);
+                            setNewUser({...newUser, roles});
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                        />
+                        <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">{role.replace('_', ' ')}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Visible Sections</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-2 dark:border-zinc-800">
+                    {systemModules.map(mod => (
+                      <label key={mod} className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={newUser.allowedSections.includes(mod)}
+                          onChange={(e) => {
+                            const sections = e.target.checked 
+                              ? [...newUser.allowedSections, mod]
+                              : newUser.allowedSections.filter(s => s !== mod);
+                            setNewUser({...newUser, allowedSections: sections});
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                        />
+                        <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">{mod}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">System Role</label>
-                <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} className="w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800">
-                  <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                  <option value="GLOBAL_ADMIN">GLOBAL_ADMIN</option>
-                  <option value="REGIONAL_COORDINATOR">REGIONAL_COORDINATOR</option>
-                  <option value="COUNTRY_DIRECTOR">COUNTRY_DIRECTOR</option>
-                  <option value="VOLUNTEER_LEAD">VOLUNTEER_LEAD</option>
-                </select>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">System Cipher (Password)</label>
+                <input required type="password" value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-xl px-4 py-3 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder="••••••••" />
               </div>
-              <div className="mt-8 flex justify-end gap-3 pt-4 border-t dark:border-zinc-800">
-                <button type="button" onClick={() => setIsAddUserModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Cancel</button>
-                <button type="submit" className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-bold text-white hover:bg-blue-500">Create User</button>
+              <div className="mt-8 flex justify-end gap-3 pt-6 border-t dark:border-zinc-800">
+                <button type="button" onClick={() => setIsAddUserModalOpen(false)} className="rounded-xl px-6 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:text-zinc-400">Abort</button>
+                <button type="submit" className="rounded-xl bg-blue-600 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-blue-500 shadow-xl shadow-blue-600/30">Commit Identity</button>
               </div>
             </form>
           </div>
@@ -859,36 +1265,73 @@ export default function AdminDashboard() {
 
       {/* Edit Role Modal */}
       {isRoleModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Manage User</h2>
-              <button onClick={() => setIsRoleModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8 rounded-[2.5rem] bg-white p-10 shadow-2xl dark:bg-[#0a0a0a] border-4 border-blue-600/10">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">Modify Clearance</h2>
+              <button onClick={() => setIsRoleModalOpen(false)} className="p-2 bg-gray-50 dark:bg-zinc-900 rounded-xl text-gray-400"><X className="h-5 w-5" /></button>
             </div>
-            <form onSubmit={handleUpdateUser} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Status</label>
-                <select value={selectedUser.status} onChange={(e) => setSelectedUser({...selectedUser, status: e.target.value})} className="w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Suspended">Suspended</option>
+            <form onSubmit={handleUpdateUser} className="space-y-6">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Active Status</label>
+                <select value={selectedUser.status} onChange={(e) => setSelectedUser({...selectedUser, status: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-xl px-4 py-3 font-black text-xs shadow-inner uppercase tracking-widest">
+                  <option value="Active">Active / Online</option>
+                  <option value="Inactive">Inactive / Offline</option>
+                  <option value="Suspended">Suspended / Restricted</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-500 mb-1">System Role</label>
-                <select value={selectedUser.role} onChange={(e) => setSelectedUser({...selectedUser, role: e.target.value})} className="w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800">
-                  <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                  <option value="GLOBAL_ADMIN">GLOBAL_ADMIN</option>
-                  <option value="REGIONAL_COORDINATOR">REGIONAL_COORDINATOR</option>
-                  <option value="COUNTRY_DIRECTOR">COUNTRY_DIRECTOR</option>
-                  <option value="VOLUNTEER_LEAD">VOLUNTEER_LEAD</option>
-                </select>
+
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Assigned Roles</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-2 dark:border-zinc-800">
+                    {availableRoles.map(role => (
+                      <label key={role} className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedUser.roles.includes(role)}
+                          onChange={(e) => {
+                            const roles = e.target.checked 
+                              ? [...selectedUser.roles, role]
+                              : selectedUser.roles.filter((r: string) => r !== role);
+                            setSelectedUser({...selectedUser, roles});
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                        />
+                        <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">{role.replace('_', ' ')}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Visible Sections</label>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-2 dark:border-zinc-800">
+                    {systemModules.map(mod => (
+                      <label key={mod} className="flex items-center gap-3 cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedUser.allowedSections.includes(mod)}
+                          onChange={(e) => {
+                            const sections = e.target.checked 
+                              ? [...selectedUser.allowedSections, mod]
+                              : selectedUser.allowedSections.filter((s: string) => s !== mod);
+                            setSelectedUser({...selectedUser, allowedSections: sections});
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                        />
+                        <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">{mod}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
+
               <div className="mt-8 flex justify-between items-center pt-6 border-t dark:border-zinc-800">
-                <button type="button" onClick={() => handleDeleteUser(selectedUser.id)} className="text-sm font-bold text-red-600 hover:text-red-500">Revoke Access</button>
+                <button type="button" onClick={() => handleDeleteUser(selectedUser.id)} className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:text-red-500 border-b-2 border-red-600/20">Terminate</button>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setIsRoleModalOpen(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-zinc-400 dark:hover:bg-zinc-800">Cancel</button>
-                  <button type="submit" className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-bold text-white hover:bg-blue-500">Update Role</button>
+                  <button type="button" onClick={() => setIsRoleModalOpen(false)} className="rounded-xl px-6 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-gray-100 dark:text-zinc-400">Abort</button>
+                  <button type="submit" className="rounded-xl bg-blue-600 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-blue-500 shadow-xl shadow-blue-600/30">Update Dossier</button>
                 </div>
               </div>
             </form>
@@ -896,6 +1339,106 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Invite Modal */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8 rounded-[2.5rem] bg-white p-10 shadow-2xl dark:bg-[#0a0a0a] border-4 border-blue-600/10">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">Generate Onboarding Token</h2>
+              <button onClick={() => setIsInviteModalOpen(false)} className="p-2 bg-gray-50 dark:bg-zinc-900 rounded-xl text-gray-400"><X className="h-5 w-5" /></button>
+            </div>
+            
+            <div className="space-y-8">
+              {!generatedInviteLink ? (
+                <>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Target Roles</label>
+                      <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-2 dark:border-zinc-800">
+                        {availableRoles.map(role => (
+                          <label key={role} className="flex items-center gap-3 cursor-pointer group">
+                            <input 
+                              type="checkbox" 
+                              checked={newInviteData.roles.includes(role)}
+                              onChange={(e) => {
+                                const roles = e.target.checked 
+                                  ? [...newInviteData.roles, role]
+                                  : newInviteData.roles.filter(r => r !== role);
+                                setNewInviteData({...newInviteData, roles});
+                              }}
+                              className="rounded border-gray-300 text-blue-600"
+                            />
+                            <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">{role.replace('_', ' ')}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="block text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Default Section Permissions</label>
+                      <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border-2 dark:border-zinc-800">
+                        {systemModules.map(mod => (
+                          <label key={mod} className="flex items-center gap-3 cursor-pointer group">
+                            <input 
+                              type="checkbox" 
+                              checked={newInviteData.sections.includes(mod)}
+                              onChange={(e) => {
+                                const sections = e.target.checked 
+                                  ? [...newInviteData.sections, mod]
+                                  : newInviteData.sections.filter(s => s !== mod);
+                                setNewInviteData({...newInviteData, sections});
+                              }}
+                              className="rounded border-gray-300 text-blue-600"
+                            />
+                            <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">{mod}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleCreateInvite}
+                    className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-600/30 uppercase tracking-[0.3em] text-xs hover:bg-blue-500 transition-all"
+                  >
+                    Generate Secure Link
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-6 animate-in zoom-in-95 duration-300">
+                  <div className="p-8 bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-900/30 rounded-3xl text-center">
+                    <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-green-700 dark:text-green-400">Invite Link Generated</h3>
+                    <p className="text-xs text-green-600/70 font-bold mt-1">This token allows a single user to self-provision their account.</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Secure URL</label>
+                    <div className="flex gap-2">
+                      <input readOnly value={generatedInviteLink} className="flex-1 bg-gray-50 dark:bg-zinc-900 border-2 dark:border-zinc-800 rounded-xl px-4 py-3 font-bold text-xs text-blue-600" />
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedInviteLink);
+                          alert("Link copied to clipboard!");
+                        }}
+                        className="bg-gray-900 dark:bg-white text-white dark:text-black px-6 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => { setGeneratedLink(""); setIsInviteModalOpen(false); }}
+                    className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-all"
+                  >
+                    Close Portal
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

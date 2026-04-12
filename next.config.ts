@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  transpilePackages: ["recharts"],
   experimental: {
-    allowedDevOrigins: ["103.6.169.235", "http://103.6.169.235", "https://103.6.169.235"],
   },
 };
 

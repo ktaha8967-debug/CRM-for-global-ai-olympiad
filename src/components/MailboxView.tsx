@@ -115,13 +115,6 @@ export default function MailboxView({ title, defaultLabel = "INBOX", configKey =
     }
   };
 
-  const handleConfigSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem(configKey, JSON.stringify(mailConfig));
-    setIsSmtpOpen(false);
-    fetchEmails();
-  };
-
   const toggleStar = (id: string) => {
     setEmails(emails.map(e => e.id === id ? { ...e, starred: !e.starred } : e));
   };
@@ -174,16 +167,6 @@ export default function MailboxView({ title, defaultLabel = "INBOX", configKey =
               </button>
             ))}
           </nav>
-        </div>
-        
-        <div className="p-4 border-t border-gray-100 dark:border-zinc-800">
-          <button 
-            onClick={() => setIsSmtpOpen(true)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
-          >
-            <Settings className="h-4 w-4" />
-            Account Config
-          </button>
         </div>
       </div>
 
@@ -290,49 +273,6 @@ export default function MailboxView({ title, defaultLabel = "INBOX", configKey =
               <div className="px-6 py-4 bg-gray-50 dark:bg-zinc-900/50 flex justify-between items-center">
                 <button type="button" className="text-gray-400"><Paperclip className="h-5 w-5" /></button>
                 <button type="submit" className="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">Send</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Config Modal */}
-      {isSmtpOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl p-8 dark:bg-[#111] dark:border dark:border-zinc-800">
-            <h2 className="text-xl font-bold mb-6">Mail Configuration</h2>
-            <form onSubmit={handleConfigSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-gray-500">IMAP Host</label>
-                  <input value={mailConfig.imapHost} onChange={e => setMailConfig({...mailConfig, imapHost: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-gray-500">IMAP Port</label>
-                  <input value={mailConfig.imapPort} onChange={e => setMailConfig({...mailConfig, imapPort: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-gray-500">SMTP Host</label>
-                  <input value={mailConfig.smtpHost} onChange={e => setMailConfig({...mailConfig, smtpHost: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-gray-500">SMTP Port</label>
-                  <input value={mailConfig.smtpPort} onChange={e => setMailConfig({...mailConfig, smtpPort: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800" />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Email / User</label>
-                <input value={mailConfig.user} onChange={e => setMailConfig({...mailConfig, user: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Password / App Password</label>
-                <input type="password" value={mailConfig.pass} onChange={e => setMailConfig({...mailConfig, pass: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-zinc-900 dark:border-zinc-800" />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsSmtpOpen(false)} className="flex-1 py-2.5 rounded-lg border dark:border-zinc-800 hover:bg-gray-50">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700">Save & Sync</button>
               </div>
             </form>
           </div>

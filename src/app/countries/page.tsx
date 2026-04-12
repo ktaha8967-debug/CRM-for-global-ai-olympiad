@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Globe, MapPin, Plus, X } from "lucide-react";
 
 const initialCountries = [
@@ -13,13 +13,36 @@ const initialCountries = [
 ];
 
 export default function CountriesPage() {
-  const [countries, setCountries] = useState(initialCountries);
+  const [countries, setCountries] = useState<any[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: "", region: "Europe" });
 
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [manageData, setManageData] = useState<any>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('gaio_countries');
+    if (saved) {
+      try {
+        setCountries(JSON.parse(saved));
+      } catch (e) {
+        setCountries(initialCountries);
+      }
+    } else {
+      setCountries(initialCountries);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('gaio_countries', JSON.stringify(countries));
+    }
+  }, [countries, isLoaded]);
+
+  if (!isLoaded) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

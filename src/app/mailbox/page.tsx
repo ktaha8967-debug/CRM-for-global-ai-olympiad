@@ -113,13 +113,6 @@ export default function MailboxPage() {
     }
   };
 
-  const handleConfigSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('gaioMailConfig', JSON.stringify(mailConfig));
-    setIsSmtpOpen(false);
-    fetchEmails();
-  };
-
   const toggleStar = (id: string) => {
     setEmails(emails.map(e => e.id === id ? { ...e, starred: !e.starred } : e));
   };
@@ -172,16 +165,6 @@ export default function MailboxPage() {
               </button>
             ))}
           </nav>
-        </div>
-        
-        <div className="p-4 border-t border-gray-100 dark:border-zinc-800">
-          <button 
-            onClick={() => setIsSmtpOpen(true)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
-          >
-            <Settings className="h-4 w-4" />
-            SMTP/IMAP Config
-          </button>
         </div>
       </div>
 
