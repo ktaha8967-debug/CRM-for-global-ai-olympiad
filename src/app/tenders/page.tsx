@@ -57,24 +57,25 @@ interface Message {
 
 interface TenderApplication {
   id: string;
-  tenderId: string;
-  organisationName: string;
+  tender_name: string;
+  organisation_name: string;
   website: string;
-  contactPerson: string;
+  contact_person: string;
   email: string;
   country: string;
-  teamSize: string;
-  experience: string;
-  proposedVenue: string;
-  budgetCapability: string;
-  documents: Document[];
+  team_size: string;
+  past_experience: string;
+  venue: string;
+  budget: string;
+  document_url: string;
   status: "Pending" | "Under Review" | "Awarded" | "Rejected";
-  submittedAt: string;
+  created_at: string;
   messages: Message[];
   // NEW MANAGEMENT FIELDS
-  score: number; // 1-5 rating
-  isShortlisted: boolean;
-  internalNotes: string;
+  rating_score: number; // 1-5 rating
+  review_notes: string;
+  approved_by: string;
+  metadata?: any;
   logs: ApplicationLog[];
 }
 
@@ -130,68 +131,104 @@ export default function TendersPage() {
   const [adminTab, setAdminTab] = useState<"DETAILS" | "DOCUMENTS" | "CHAT" | "LOGS">("DETAILS");
 
   // Form States
-  const [applyForm, setApplyForm] = useState({ organisationName: "", website: "", contactPerson: "", email: "", country: "", teamSize: "", experience: "", proposedVenue: "", budgetCapability: "" });
-  const [uploadedDocs, setUploadedDocs] = useState<Document[]>([]);
+  const [applyForm, setApplyForm] = useState({ 
+    organisation_name: "", 
+    website: "", 
+    contact_person: "", 
+    email: "", 
+    country: "", 
+    team_size: "", 
+    past_experience: "", 
+    venue: "", 
+    budget: "",
+    metadata: ""
+  });
+  const [uploadedDocUrl, setUploadedDocUrl] = useState("");
   const [tenderForm, setTenderForm] = useState<Tender>({ id: "", title: "", type: "National Olympiad", location: "", deadline: "", status: "Open", description: "", requirements: "", budget: "" });
   const [chatMessage, setChatMessage] = useState("");
 
   // Load Data
   useEffect(() => {
-    const savedTenders = localStorage.getItem('gaio_tenders_v4');
-    const savedApps = localStorage.getItem('gaio_tender_apps_v4');
+    const savedTenders = localStorage.getItem('gaio_tenders_v5');
+    const savedApps = localStorage.getItem('gaio_tender_apps_v5');
     if (savedTenders) setTenders(JSON.parse(savedTenders)); else setTenders(initialTenders);
     if (savedApps) setApplications(JSON.parse(savedApps));
   }, []);
 
   // Sync Data
   useEffect(() => {
-    if (tenders.length > 0) localStorage.setItem('gaio_tenders_v4', JSON.stringify(tenders));
-    localStorage.setItem('gaio_tender_apps_v4', JSON.stringify(applications));
+    if (tenders.length > 0) localStorage.setItem('gaio_tenders_v5', JSON.stringify(tenders));
+    localStorage.setItem('gaio_tender_apps_v5', JSON.stringify(applications));
   }, [tenders, applications]);
 
   // Actions
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => setUploadedDocs(prev => [...prev, { name: file.name, type: file.type, data: event.target?.result as string }]);
-        reader.readAsDataURL(file);
-      });
+    if (e.target.files && e.target.files[0]) {
+      // For prototype, we just use the name as a dummy URL
+      setUploadedDocUrl(`https://gaio-storage.local/${e.target.files[0].name}`);
     }
   };
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTender) return;
+
+    let parsedMetadata = {};
+    try {
+      if (applyForm.metadata) {
+        parsedMetadata = JSON.parse(applyForm.metadata);
+      }
+    } catch (e) {
+      alert("Invalid JSON in metadata field");
+      return;
+    }
+
     const newApp: TenderApplication = {
       id: `APP-${Date.now()}`,
-      tenderId: selectedTender.id,
+      tender_name: selectedTender.title,
       ...applyForm,
-      documents: uploadedDocs,
+      document_url: uploadedDocUrl || "https://gaio-storage.local/default.pdf",
       status: "Pending",
-      submittedAt: new Date().toLocaleDateString(),
+      created_at: new Date().toISOString().split('T')[0],
       messages: [],
-      score: 0,
-      isShortlisted: false,
-      internalNotes: "",
+      rating_score: 0,
+      review_notes: "",
+      approved_by: "",
+      metadata: parsedMetadata,
       logs: [{ status: "Pending", timestamp: new Date().toLocaleString(), note: "Application submitted via public portal." }]
     };
     setApplications([...applications, newApp]);
     setIsApplyModalOpen(false);
-    setApplyForm({ organisationName: "", website: "", contactPerson: "", email: "", country: "", teamSize: "", experience: "", proposedVenue: "", budgetCapability: "" });
-    setUploadedDocs([]);
+    setApplyForm({ 
+      organisation_name: "", 
+      website: "", 
+      contact_person: "", 
+      email: "", 
+      country: "", 
+      team_size: "", 
+      past_experience: "", 
+      venue: "", 
+      budget: "",
+      metadata: ""
+    });
+    setUploadedDocUrl("");
     alert("Application submitted successfully!");
   };
 
   const handleUpdateAppStatus = (appId: string, status: TenderApplication['status']) => {
-    const logEntry = { status, timestamp: new Date().toLocaleString(), note: `Status updated to ${status} by Administrator.` };
-    const updatedApps = applications.map(app => app.id === appId ? { ...app, status, logs: [...app.logs, logEntry] } : app);
+    const logEntry = { status, timestamp: new Date().toLocaleString(), note: `Status updated to ${status} by ${user?.name || 'Administrator'}.` };
+    const updatedApps = applications.map(app => app.id === appId ? { 
+      ...app, 
+      status, 
+      approved_by: status === 'Awarded' ? (user?.name || 'Admin') : app.approved_by,
+      logs: [...app.logs, logEntry] 
+    } : app);
     setApplications(updatedApps);
     if (selectedApp?.id === appId) setSelectedApp({ ...selectedApp, status, logs: [...selectedApp.logs, logEntry] });
+    
     if (status === "Awarded") {
       const app = applications.find(a => a.id === appId);
-      if (app) setTenders(tenders.map(t => t.id === app.tenderId ? { ...t, status: "Awarded" } : t));
+      if (app) setTenders(tenders.map(t => t.title === app.tender_name ? { ...t, status: "Awarded" } : t));
     }
   };
 
@@ -227,20 +264,15 @@ export default function TendersPage() {
     const updatedApp = { ...selectedApp, messages: [...selectedApp.messages, msg] };
     setApplications(applications.map(a => a.id === selectedApp.id ? updatedApp : a));
     setSelectedApp(updatedApp);
-    addNotification(`New message to ${selectedApp.organisationName}`, "Tender Management");
+    addNotification(`New message to ${selectedApp.organisation_name}`, "Tender Management");
     setChatMessage("");
-  };
-
-  const openDocument = (doc: Document) => {
-    const newWindow = window.open();
-    if (newWindow) newWindow.document.write(`<html><body style="margin:0"><iframe src="${doc.data}" width="100%" height="100%" frameborder="0"></iframe></body></html>`);
   };
 
   const adminStats = {
     total: tenders.length,
     open: tenders.filter(t => t.status === "Open").length,
     apps: applications.length,
-    shortlisted: applications.filter(a => a.isShortlisted).length
+    shortlisted: applications.filter(a => a.rating_score >= 4).length
   };
 
   return (
@@ -305,7 +337,7 @@ export default function TendersPage() {
             {[
               { label: "Active Tenders", value: adminStats.open, icon: Trophy, color: "text-amber-500" },
               { label: "Total Applications", value: adminStats.apps, icon: FileText, color: "text-blue-500" },
-              { label: "Shortlisted", value: adminStats.shortlisted, icon: Flag, color: "text-green-500" },
+              { label: "High Rating", value: adminStats.shortlisted, icon: Flag, color: "text-green-500" },
               { label: "Pending Review", value: applications.filter(a => a.status === 'Pending').length, icon: AlertCircle, color: "text-purple-500" }
             ].map(stat => (
               <div key={stat.label} className="p-6 rounded-[2rem] border dark:border-zinc-800 bg-white dark:bg-[#111] shadow-sm">
@@ -342,7 +374,7 @@ export default function TendersPage() {
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${t.status === 'Open' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>{t.status}</span>
                         </td>
-                        <td className="px-6 py-4"><span className="flex items-center gap-1.5 text-xs font-black text-blue-600"><Users className="h-3 w-3" />{applications.filter(a => a.tenderId === t.id).length}</span></td>
+                        <td className="px-6 py-4"><span className="flex items-center gap-1.5 text-xs font-black text-blue-600"><Users className="h-3 w-3" />{applications.filter(a => a.tender_name === t.title).length}</span></td>
                         <td className="px-6 py-4 text-right">
                           <button onClick={() => { setSelectedTender(t); setIsManageModalOpen(true); setSelectedApp(null); }} className="text-blue-600 hover:text-blue-500 text-xs font-black uppercase tracking-widest">Manage</button>
                         </td>
@@ -353,23 +385,23 @@ export default function TendersPage() {
               </div>
             </div>
 
-            {/* Right: Shortlisted Applicants */}
+            {/* Right: Top Applicants */}
             <div className="space-y-6">
-              <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2"><Flag className="h-6 w-6 text-green-600" /> Priority List</h3>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2"><Flag className="h-6 w-6 text-green-600" /> High Potential</h3>
               <div className="space-y-4">
-                {applications.filter(a => a.isShortlisted).length === 0 && (
+                {applications.filter(a => a.rating_score >= 4).length === 0 && (
                   <div className="p-10 text-center border-2 border-dashed rounded-[2rem] dark:border-zinc-800">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No Priority Shortlist</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No High Rated Applicants</p>
                   </div>
                 )}
-                {applications.filter(a => a.isShortlisted).map(app => (
+                {applications.filter(a => a.rating_score >= 4).map(app => (
                   <div key={app.id} className="p-5 rounded-2xl bg-white dark:bg-[#111] border dark:border-zinc-800 flex items-center justify-between group hover:border-blue-500 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 font-black">{app.organisationName.charAt(0)}</div>
+                      <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 font-black">{app.organisation_name.charAt(0)}</div>
                       <div>
-                        <h4 className="text-sm font-black text-gray-900 dark:text-white truncate max-w-[120px]">{app.organisationName}</h4>
+                        <h4 className="text-sm font-black text-gray-900 dark:text-white truncate max-w-[120px]">{app.organisation_name}</h4>
                         <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => <Star key={i} className={`h-2.5 w-2.5 ${i < app.score ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}`} />)}
+                          {[...Array(5)].map((_, i) => <Star key={i} className={`h-2.5 w-2.5 ${i < app.rating_score ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}`} />)}
                         </div>
                       </div>
                     </div>
@@ -392,21 +424,16 @@ export default function TendersPage() {
                   {selectedApp ? <ShieldCheck className="h-8 w-8" /> : <Trophy className="h-8 w-8" />}
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-gray-900 dark:text-white leading-none mb-2">{selectedApp ? selectedApp.organisationName : selectedTender?.title}</h2>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white leading-none mb-2">{selectedApp ? selectedApp.organisation_name : selectedTender?.title}</h2>
                   <div className="flex items-center gap-3">
                     {selectedApp && (
                       <div className="flex items-center gap-1 mr-4">
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} onClick={() => updateAppField(selectedApp.id, 'score', i + 1)} className={`h-4 w-4 cursor-pointer transition-transform hover:scale-125 ${i < selectedApp.score ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
+                          <Star key={i} onClick={() => updateAppField(selectedApp.id, 'rating_score', i + 1)} className={`h-4 w-4 cursor-pointer transition-transform hover:scale-125 ${i < selectedApp.rating_score ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}`} />
                         ))}
                       </div>
                     )}
                     <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded">{selectedApp ? "Proposal Evaluation" : "Tender Orchestration"}</span>
-                    {selectedApp && (
-                      <button onClick={() => updateAppField(selectedApp.id, 'isShortlisted', !selectedApp.isShortlisted)} className={`flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded transition-all ${selectedApp.isShortlisted ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        <Flag className="h-3 w-3" /> {selectedApp.isShortlisted ? 'Shortlisted' : 'Shortlist'}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -436,12 +463,12 @@ export default function TendersPage() {
                       <div className="lg:col-span-2 space-y-10">
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                           {[
-                            { l: "Contact", v: selectedApp.contactPerson, i: Users },
+                            { l: "Contact", v: selectedApp.contact_person, i: Users },
                             { l: "Email", v: selectedApp.email, i: Mail },
                             { l: "Country", v: selectedApp.country, i: MapPin },
-                            { l: "Proposed Venue", v: selectedApp.proposedVenue, i: Building2 },
-                            { l: "Budget Capability", v: selectedApp.budgetCapability, i: DollarSign },
-                            { l: "Team Size", v: selectedApp.teamSize, i: BarChart3 }
+                            { l: "Proposed Venue", v: selectedApp.venue, i: Building2 },
+                            { l: "Budget Capability", v: selectedApp.budget, i: DollarSign },
+                            { l: "Team Size", v: selectedApp.team_size, i: BarChart3 }
                           ].map(it => (
                             <div key={it.l} className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800">
                               <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.15em] mb-1">{it.l}</p>
@@ -451,15 +478,29 @@ export default function TendersPage() {
                         </div>
                         <div className="space-y-6">
                           <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">Organiser Experience & Proposal</h4>
-                          <div className="p-8 rounded-3xl bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 text-sm font-medium leading-relaxed text-gray-700 dark:text-zinc-300 whitespace-pre-wrap">{selectedApp.experience}</div>
+                          <div className="p-8 rounded-3xl bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 text-sm font-medium leading-relaxed text-gray-700 dark:text-zinc-300 whitespace-pre-wrap">{selectedApp.past_experience}</div>
                         </div>
+                        {selectedApp.metadata && (
+                          <div className="space-y-4">
+                            <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest">Metadata</h4>
+                            <pre className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 text-xs font-mono">
+                              {JSON.stringify(selectedApp.metadata, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-8">
                         <div className="p-8 rounded-3xl bg-blue-600 text-white shadow-xl relative overflow-hidden">
                           <CheckSquare className="absolute -right-4 -bottom-4 h-32 w-32 opacity-10" />
                           <h4 className="text-lg font-black mb-4">Administration Notes</h4>
-                          <textarea value={selectedApp.internalNotes} onChange={e => updateAppField(selectedApp.id, 'internalNotes', e.target.value)} placeholder="Private internal evaluation notes..." className="w-full bg-white/10 border-white/20 rounded-2xl p-4 text-xs font-bold placeholder:text-blue-200 h-40 focus:ring-0 outline-none" />
+                          <textarea value={selectedApp.review_notes} onChange={e => updateAppField(selectedApp.id, 'review_notes', e.target.value)} placeholder="Private internal evaluation notes..." className="w-full bg-white/10 border-white/20 rounded-2xl p-4 text-xs font-bold placeholder:text-blue-200 h-40 focus:ring-0 outline-none" />
                         </div>
+                        {selectedApp.approved_by && (
+                          <div className="p-4 rounded-2xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-900/50">
+                            <p className="text-[10px] font-black text-green-600 uppercase">Approved By</p>
+                            <p className="text-sm font-black text-green-700 dark:text-green-400">{selectedApp.approved_by}</p>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                           <button onClick={() => handleUpdateAppStatus(selectedApp.id, 'Awarded')} className="py-4 bg-green-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-green-500 shadow-xl transition-all">Award Tender</button>
                           <button onClick={() => handleUpdateAppStatus(selectedApp.id, 'Rejected')} className="py-4 bg-red-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-red-500 shadow-xl transition-all">Reject</button>
@@ -470,14 +511,12 @@ export default function TendersPage() {
 
                   {adminTab === "DOCUMENTS" && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {selectedApp.documents.map((doc, i) => (
-                        <div key={i} className="p-6 rounded-3xl border dark:border-zinc-800 bg-white dark:bg-[#111] hover:shadow-xl transition-all group relative overflow-hidden">
-                          <FileText className="h-10 w-10 text-blue-600 mb-4" />
-                          <h5 className="font-black text-gray-900 dark:text-white text-sm truncate">{doc.name}</h5>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-6">{doc.type}</p>
-                          <button onClick={() => openDocument(doc)} className="flex items-center gap-2 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"><Eye className="h-4 w-4" /> Open Verification Doc</button>
-                        </div>
-                      ))}
+                      <div className="p-6 rounded-3xl border dark:border-zinc-800 bg-white dark:bg-[#111] hover:shadow-xl transition-all group relative overflow-hidden">
+                        <FileText className="h-10 w-10 text-blue-600 mb-4" />
+                        <h5 className="font-black text-gray-900 dark:text-white text-sm truncate">Main Application Proposal</h5>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-6">PDF Document</p>
+                        <a href={selectedApp.document_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"><Eye className="h-4 w-4" /> Open Verification Doc</a>
+                      </div>
                     </div>
                   )}
 
@@ -595,26 +634,27 @@ export default function TendersPage() {
             </div>
             <form onSubmit={handleApply} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Organisation Name *</label><input required value={applyForm.organisationName} onChange={e => setApplyForm({...applyForm, organisationName: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Organisation Name *</label><input required value={applyForm.organisation_name} onChange={e => setApplyForm({...applyForm, organisation_name: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Website</label><div className="relative"><Globe className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="url" placeholder="https://" value={applyForm.website} onChange={e => setApplyForm({...applyForm, website: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 pl-12 text-sm font-bold" /></div></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact Person *</label><input required value={applyForm.contactPerson} onChange={e => setApplyForm({...applyForm, contactPerson: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Contact Person *</label><input required value={applyForm.contact_person} onChange={e => setApplyForm({...applyForm, contact_person: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email *</label><div className="relative"><Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input required type="email" value={applyForm.email} onChange={e => setApplyForm({...applyForm, email: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 pl-12 text-sm font-bold" /></div></div>
                 <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Country *</label><input required value={applyForm.country} onChange={e => setApplyForm({...applyForm, country: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Team Size</label><input type="number" value={applyForm.teamSize} onChange={e => setApplyForm({...applyForm, teamSize: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Team Size</label><input type="number" value={applyForm.team_size} onChange={e => setApplyForm({...applyForm, team_size: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
               </div>
-              <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Experience *</label><textarea required rows={3} value={applyForm.experience} onChange={e => setApplyForm({...applyForm, experience: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-medium" placeholder="Describe past events..." /></div>
+              <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Past Experience *</label><textarea required rows={3} value={applyForm.past_experience} onChange={e => setApplyForm({...applyForm, past_experience: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-medium" placeholder="Describe past events..." /></div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Proposed Venue</label><input value={applyForm.proposedVenue} onChange={e => setApplyForm({...applyForm, proposedVenue: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Budget</label><input value={applyForm.budgetCapability} onChange={e => setApplyForm({...applyForm, budgetCapability: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Proposed Venue</label><input value={applyForm.venue} onChange={e => setApplyForm({...applyForm, venue: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Budget</label><input value={applyForm.budget} onChange={e => setApplyForm({...applyForm, budget: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" /></div>
               </div>
+              <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Metadata (JSON)</label><textarea value={applyForm.metadata} onChange={e => setApplyForm({...applyForm, metadata: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl p-4 text-sm font-bold" placeholder='{"key": "value"}' rows={2} /></div>
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Supporting Documents</label>
                 <div className="p-8 border-2 border-dashed dark:border-zinc-800 rounded-3xl flex flex-col items-center justify-center bg-gray-50/50 dark:bg-zinc-950/50 relative">
                   <Upload className="h-8 w-8 text-gray-400 mb-2" />
                   <p className="text-xs font-bold text-gray-500 uppercase">Click to upload (PDF, DOCX — max 5MB)</p>
-                  <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} />
+                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} />
                 </div>
-                {uploadedDocs.length > 0 && <div className="flex flex-wrap gap-2">{uploadedDocs.map((doc, i) => (<div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[10px] font-black uppercase"><FileText className="h-3 w-3" /> {doc.name}<X className="h-3 w-3 cursor-pointer" onClick={() => setUploadedDocs(uploadedDocs.filter((_, idx) => idx !== i))} /></div>))}</div>}
+                {uploadedDocUrl && <div className="flex flex-wrap gap-2"><div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 text-[10px] font-black uppercase"><FileText className="h-3 w-3" /> {uploadedDocUrl.split('/').pop()}<X className="h-3 w-3 cursor-pointer" onClick={() => setUploadedDocUrl("")} /></div></div>}
               </div>
               <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-[0.3em] hover:bg-blue-500 shadow-2xl transition-all">Submit Application</button>
             </form>

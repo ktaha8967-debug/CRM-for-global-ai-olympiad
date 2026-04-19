@@ -44,11 +44,14 @@ interface Message {
 
 interface Organiser {
   id: string;
-  name: string;
-  country: string;
-  contact: string;
+  full_name: string;
   email: string;
-  teamSize: number;
+  organisation_name: string;
+  country: string;
+  city: string;
+  website: string;
+  created_at: string;
+  metadata?: any;
   status: string;
   tasks: Task[];
   team: TeamMember[];
@@ -58,11 +61,13 @@ interface Organiser {
 const initialOrganisers: Organiser[] = [
   { 
     id: "ORG-001", 
-    name: "TechEd UK", 
+    full_name: "James Wilson",
+    organisation_name: "TechEd UK", 
     country: "United Kingdom", 
-    contact: "James Wilson", 
+    city: "London",
+    website: "https://teched.uk",
     email: "james@teched.uk", 
-    teamSize: 3, 
+    created_at: "2026-01-10",
     status: "Approved",
     tasks: [
       { id: "T-1", title: "Finalize Venue Contract", status: "Completed", dueDate: "2026-04-10" },
@@ -80,11 +85,13 @@ const initialOrganisers: Organiser[] = [
   },
   { 
     id: "ORG-002", 
-    name: "Japan AI Foundation", 
+    full_name: "Yuki Tanaka",
+    organisation_name: "Japan AI Foundation", 
     country: "Japan", 
-    contact: "Yuki Tanaka", 
+    city: "Tokyo",
+    website: "https://jaif.jp",
     email: "y.tanaka@jaif.jp", 
-    teamSize: 2, 
+    created_at: "2026-02-15",
     status: "Approved",
     tasks: [],
     team: [
@@ -99,7 +106,15 @@ export default function OrganisersPage() {
   const { user, addNotification } = useAuth();
   const [organisers, setOrganisers] = useState<Organiser[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", country: "", contact: "", email: "" });
+  const [formData, setFormData] = useState({ 
+    full_name: "", 
+    organisation_name: "", 
+    country: "", 
+    city: "", 
+    website: "", 
+    email: "", 
+    metadata: "" 
+  });
 
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [manageData, setManageData] = useState<Organiser | null>(null);
@@ -112,7 +127,7 @@ export default function OrganisersPage() {
   const [newMessage, setNewMessage] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem('gaio_organisers');
+    const saved = localStorage.getItem('gaio_organisers_v5');
     if (saved) {
       setOrganisers(JSON.parse(saved));
     } else {
@@ -122,21 +137,34 @@ export default function OrganisersPage() {
 
   useEffect(() => {
     if (organisers.length > 0) {
-      localStorage.setItem('gaio_organisers', JSON.stringify(organisers));
+      localStorage.setItem('gaio_organisers_v5', JSON.stringify(organisers));
     }
   }, [organisers]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) return;
+    if (!formData.organisation_name) return;
+
+    let parsedMetadata = {};
+    try {
+      if (formData.metadata) {
+        parsedMetadata = JSON.parse(formData.metadata);
+      }
+    } catch (e) {
+      alert("Invalid JSON in metadata field");
+      return;
+    }
 
     const newOrg: Organiser = {
       id: `ORG-00${organisers.length + 1}`,
-      name: formData.name,
+      full_name: formData.full_name,
+      organisation_name: formData.organisation_name,
       country: formData.country,
-      contact: formData.contact,
+      city: formData.city,
+      website: formData.website,
       email: formData.email,
-      teamSize: 0,
+      created_at: new Date().toISOString().split('T')[0],
+      metadata: parsedMetadata,
       status: "Applied",
       tasks: [],
       team: [],
@@ -144,7 +172,15 @@ export default function OrganisersPage() {
     };
 
     setOrganisers([newOrg, ...organisers]);
-    setFormData({ name: "", country: "", contact: "", email: "" });
+    setFormData({ 
+      full_name: "", 
+      organisation_name: "", 
+      country: "", 
+      city: "", 
+      website: "", 
+      email: "", 
+      metadata: "" 
+    });
     setIsModalOpen(false);
   };
 
@@ -205,7 +241,7 @@ export default function OrganisersPage() {
       designation: newMemberDesignation || "Team Member",
       status: "Active"
     };
-    const updated = { ...manageData, team: [...manageData.team, newMember], teamSize: manageData.team.length + 1 };
+    const updated = { ...manageData, team: [...manageData.team, newMember] };
     updateOrganiser(updated);
     setNewMemberName("");
     setNewMemberDesignation("");
@@ -214,7 +250,7 @@ export default function OrganisersPage() {
   const deleteTeamMember = (memberId: string) => {
     if (!manageData) return;
     const updatedTeam = manageData.team.filter(m => m.id !== memberId);
-    updateOrganiser({ ...manageData, team: updatedTeam, teamSize: updatedTeam.length });
+    updateOrganiser({ ...manageData, team: updatedTeam });
   };
 
   const sendMessage = () => {
@@ -227,7 +263,7 @@ export default function OrganisersPage() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     updateOrganiser({ ...manageData, messages: [...manageData.messages, msg] });
-    addNotification(`New message to ${manageData.name}`, "Organiser Management");
+    addNotification(`New message to ${manageData.organisation_name}`, "Organiser Management");
     setNewMessage("");
   };
 
@@ -258,13 +294,13 @@ export default function OrganisersPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{org.name.charAt(0)}</span>
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{org.organisation_name.charAt(0)}</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{org.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{org.organisation_name}</h3>
                   <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-zinc-400">
                     <MapPin className="h-3 w-3" />
-                    {org.country}
+                    {org.city}, {org.country}
                   </div>
                 </div>
               </div>
@@ -294,7 +330,7 @@ export default function OrganisersPage() {
 
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs text-gray-500 dark:text-zinc-500">Contact: {org.contact}</span>
+                <span className="text-xs text-gray-500 dark:text-zinc-500">Contact: {org.full_name}</span>
                 <span className="text-[10px] text-gray-400 dark:text-zinc-600">{org.email}</span>
               </div>
               <button onClick={() => handleOpenManage(org)} className="bg-blue-600/10 text-blue-600 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-600 hover:text-white transition-all">Manage Hub</button>
@@ -305,7 +341,7 @@ export default function OrganisersPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Organiser</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400"><X className="h-5 w-5" /></button>
@@ -314,19 +350,33 @@ export default function OrganisersPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Organisation Name</label>
-                  <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  <input type="text" required value={formData.organisation_name} onChange={(e) => setFormData({...formData, organisation_name: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Country</label>
-                  <input type="text" required value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contact Person</label>
-                  <input type="text" required value={formData.contact} onChange={(e) => setFormData({...formData, contact: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Contact Full Name</label>
+                  <input type="text" required value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Email</label>
                   <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Country</label>
+                    <input type="text" required value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">City</label>
+                    <input type="text" required value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Website</label>
+                  <input type="url" value={formData.website} onChange={(e) => setFormData({...formData, website: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" placeholder="https://" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Metadata (JSON)</label>
+                  <textarea value={formData.metadata} onChange={(e) => setFormData({...formData, metadata: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" placeholder='{"key": "value"}' rows={3} />
                 </div>
               </div>
               <div className="mt-8 flex justify-end gap-3">
@@ -344,12 +394,12 @@ export default function OrganisersPage() {
             <div className="p-6 border-b dark:border-zinc-800 flex items-center justify-between bg-gray-50 dark:bg-zinc-900/50">
               <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl">
-                  {manageData.name.charAt(0)}
+                  {manageData.organisation_name.charAt(0)}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">{manageData.name}</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">{manageData.organisation_name}</h2>
                   <p className="text-xs text-gray-500 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {manageData.country} • {manageData.id}
+                    <MapPin className="h-3 w-3" /> {manageData.city}, {manageData.country} • {manageData.id}
                   </p>
                 </div>
               </div>
@@ -406,13 +456,35 @@ export default function OrganisersPage() {
                     </div>
                     <div className="p-4 rounded-xl border dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/30">
                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Contact</span>
-                      <p className="mt-1 font-bold text-gray-900 dark:text-white">{manageData.contact}</p>
+                      <p className="mt-1 font-bold text-gray-900 dark:text-white">{manageData.full_name}</p>
                     </div>
                     <div className="p-4 rounded-xl border dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/30">
                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Email</span>
                       <p className="mt-1 font-bold text-gray-900 dark:text-white">{manageData.email}</p>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-4 rounded-xl border dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/30">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Website</span>
+                      <p className="mt-1 font-bold text-blue-600 dark:text-blue-400 truncate">
+                        <a href={manageData.website} target="_blank" rel="noopener noreferrer">{manageData.website}</a>
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl border dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/30">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Joined At</span>
+                      <p className="mt-1 font-bold text-gray-900 dark:text-white">{manageData.created_at}</p>
+                    </div>
+                  </div>
+
+                  {manageData.metadata && (
+                    <div className="p-4 rounded-xl border dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/30">
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Metadata</span>
+                      <pre className="mt-2 text-xs text-gray-700 dark:text-zinc-300 overflow-x-auto p-3 bg-white dark:bg-black rounded-lg border dark:border-zinc-800">
+                        {JSON.stringify(manageData.metadata, null, 2)}
+                      </pre>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">

@@ -28,28 +28,38 @@ export default function GlobalDashboard() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const updateDashboard = () => {
-      // 1. Fetch Real Counts
-      const countries = JSON.parse(localStorage.getItem('gaio_countries') || 'null');
-      const sponsors = JSON.parse(localStorage.getItem('gaio_sponsors') || 'null');
-      const eventsData = JSON.parse(localStorage.getItem('gaio_events_core_simple_v2') || 'null');
-      const volunteers = JSON.parse(localStorage.getItem('gaio_volunteers_v2') || 'null');
-      const tenderList = JSON.parse(localStorage.getItem('gaio_tenders') || 'null');
+    const fetchRealData = async () => {
+      try {
+        const [sponsorsRes, volunteersRes, tendersRes] = await Promise.all([
+          fetch('/api/sponsors'),
+          fetch('/api/volunteers'),
+          fetch('/api/tenders')
+        ]);
 
-      setCounts({
-        countries: countries ? countries.length : 107,
-        sponsors: sponsors ? sponsors.length : 32,
-        events: eventsData?.events ? eventsData.events.length : 145,
-        volunteers: volunteers ? volunteers.length : 856
-      });
+        const sponsorsData = sponsorsRes.ok ? await sponsorsRes.json() : [];
+        const volunteersData = volunteersRes.ok ? await volunteersRes.json() : [];
+        const tendersData = tendersRes.ok ? await tendersRes.json() : [];
 
-      setTenders(tenderList || []);
-      setIsLoaded(true);
+        // For counts that might not have endpoints yet, we fall back to localStorage or defaults
+        const countries = JSON.parse(localStorage.getItem('gaio_countries') || '[]');
+        const eventsData = JSON.parse(localStorage.getItem('gaio_events_core_simple_v2') || '{"events": []}');
+
+        setCounts({
+          countries: countries.length || 107,
+          sponsors: Array.isArray(sponsorsData) ? sponsorsData.length : 32,
+          events: eventsData?.events?.length || 145,
+          volunteers: Array.isArray(volunteersData) ? volunteersData.length : 856
+        });
+
+        setTenders(Array.isArray(tendersData) ? tendersData : []);
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setIsLoaded(true);
+      }
     };
 
-    updateDashboard();
-    window.addEventListener('storage', updateDashboard);
-    return () => window.removeEventListener('storage', updateDashboard);
+    fetchRealData();
   }, []);
 
   const stats = [

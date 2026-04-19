@@ -26,13 +26,10 @@ const navigation = [
   { name: "Global Mailbox", href: "/mailbox", icon: Mail },
   { name: "Country Network", href: "/countries", icon: Globe },
   { name: "Organiser Management", href: "/organisers", icon: Users },
-  { name: "Organiser Mailbox", href: "/organisers/mailbox", icon: Mail },
   { name: "Sponsors & Partners", href: "/sponsors", icon: Building2 },
-  { name: "Sponsor Mailbox", href: "/sponsors/mailbox", icon: Mail },
   { name: "Tender Management", href: "/tenders", icon: FileText },
   { name: "Event Management", href: "/events", icon: CalendarDays },
   { name: "Volunteer Network", href: "/volunteers", icon: MapPin },
-  { name: "Volunteer Mailbox", href: "/volunteers/mailbox", icon: Mail },
   { name: "Recognition", href: "/recognition", icon: Medal },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

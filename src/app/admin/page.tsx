@@ -260,33 +260,45 @@ export default function AdminDashboard() {
   const [sysConfig, setSysConfig] = useState({ maintenance: false, registration: true, publicTenders: false });
 
   // GLOBAL MAIL STATE
-  const [activeMailDept, setActiveMailDept] = useState("global");
+  const [activeMailAccount, setActiveMailAccount] = useState<any>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const depts = [
-    { id: 'global', name: 'Global Main', email: 'admin@gaio.uk' },
-    { id: 'organisers', name: 'Organisers', email: 'organisers@gaio.uk' },
-    { id: 'sponsors', name: 'Sponsors', email: 'partners@gaio.uk' },
-    { id: 'volunteers', name: 'Volunteers', email: 'volunteers@gaio.uk' },
-  ];
+  const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
+  
+  const defaultCategories = ["Global", "Organiser", "Sponsor", "Volunteer", "Country Director", "Support"];
+  
   const [mailAccounts, setMailAccounts] = useState(() => {
     if (typeof window !== 'undefined') {
-      const key = 'gaioMailAccounts_Status'; // unified key
-      const saved = localStorage.getItem(key);
-      // Logic to sync with individual config keys
-      return depts.map(d => {
+      const saved = localStorage.getItem('gaio_mail_accounts_v2');
+      if (saved) return JSON.parse(saved);
+      
+      // Fallback/Initial Migration from old keys
+      const initial = [
+        { id: 'global', name: 'Global Main', category: 'Global', status: 'Not Configured' },
+        { id: 'organisers', name: 'Organisers', category: 'Organiser', status: 'Not Configured' },
+        { id: 'sponsors', name: 'Sponsors', category: 'Sponsor', status: 'Not Configured' },
+        { id: 'volunteers', name: 'Volunteers', category: 'Volunteer', status: 'Not Configured' },
+      ].map(d => {
         const configKey = d.id === 'global' ? 'gaioMailConfig' : `gaioMailConfig_${d.id}`;
         const configSaved = localStorage.getItem(configKey);
         if (configSaved) {
           const config = JSON.parse(configSaved);
-          return { ...d, email: config.user, status: 'Connected' };
+          return { ...d, ...config, status: 'Connected' };
         }
-        return { ...d, status: 'Not Configured' };
+        return d;
       });
+      return initial;
     }
-    return depts.map(d => ({ ...d, status: 'Not Configured' }));
+    return [];
   });
 
+  useEffect(() => {
+    localStorage.setItem('gaio_mail_accounts_v2', JSON.stringify(mailAccounts));
+  }, [mailAccounts]);
+
   const [tempMailConfig, setTempMailConfig] = useState({
+    id: "",
+    name: "",
+    category: "Global",
     smtpHost: "smtp.gmail.com",
     smtpPort: "587",
     imapHost: "imap.gmail.com",
@@ -306,47 +318,61 @@ export default function AdminDashboard() {
     setLogs((prev: any) => [newLog, ...prev].slice(0, 50));
   };
 
-  const getDeptKey = (dept: string) => {
-    if (dept === 'global') return 'gaioMailConfig';
-    return `gaioMailConfig_${dept}`;
-  };
-
-  const handleOpenMailConfig = (dept: string) => {
-    setActiveMailDept(dept);
-    const saved = localStorage.getItem(getDeptKey(dept));
-    if (saved) {
-      setTempMailConfig(JSON.parse(saved));
-    } else {
-      setTempMailConfig({
-        smtpHost: "smtp.gmail.com",
-        smtpPort: "587",
-        imapHost: "imap.gmail.com",
-        imapPort: "993",
-        user: "",
-        pass: ""
-      });
-    }
+  const handleOpenMailConfig = (account: any) => {
+    setActiveMailAccount(account);
+    setTempMailConfig({
+      id: account.id,
+      name: account.name,
+      category: account.category || "Global",
+      smtpHost: account.smtpHost || "smtp.gmail.com",
+      smtpPort: account.smtpPort || "587",
+      imapHost: account.imapHost || "imap.gmail.com",
+      imapPort: account.imapPort || "993",
+      user: account.user || "",
+      pass: account.pass || ""
+    });
     setIsMailModalOpen(true);
   };
 
   const handleSaveMailConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem(getDeptKey(activeMailDept), JSON.stringify(tempMailConfig));
+    const updatedAccounts = mailAccounts.map((acc: any) => 
+      acc.id === activeMailAccount.id ? { ...acc, ...tempMailConfig, status: 'Connected' } : acc
+    );
+    setMailAccounts(updatedAccounts);
     setIsMailModalOpen(false);
-    addLog(`Configured ${activeMailDept} mailbox`, "MEDIUM");
-    
-    // Refresh mail accounts status
-    setMailAccounts(depts.map(d => {
-      const key = d.id === 'global' ? 'gaioMailConfig' : `gaioMailConfig_${d.id}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const config = JSON.parse(saved);
-        return { ...d, email: config.user, status: 'Connected' };
-      }
-      return { ...d, status: 'Not Configured' };
-    }));
-    
-    alert(`Configuration for ${activeMailDept.toUpperCase()} Mailbox has been pushed successfully! It is now automatically configured.`);
+    addLog(`Updated ${tempMailConfig.name} mail configuration`, "MEDIUM");
+    alert(`Configuration for ${tempMailConfig.name} has been updated successfully.`);
+  };
+
+  const handleAddMailAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newAccount = {
+      ...tempMailConfig,
+      id: `mail-${Date.now()}`,
+      status: tempMailConfig.user ? 'Connected' : 'Not Configured'
+    };
+    setMailAccounts([...mailAccounts, newAccount]);
+    setIsAddAccountModalOpen(false);
+    addLog(`Added new mail account: ${newAccount.name} (${newAccount.category})`, "MEDIUM");
+    setTempMailConfig({
+      id: "",
+      name: "",
+      category: "Global",
+      smtpHost: "smtp.gmail.com",
+      smtpPort: "587",
+      imapHost: "imap.gmail.com",
+      imapPort: "993",
+      user: "",
+      pass: ""
+    });
+  };
+
+  const handleDeleteMailAccount = (id: string) => {
+    if (confirm("Are you sure you want to delete this mail account?")) {
+      setMailAccounts(mailAccounts.filter((acc: any) => acc.id !== id));
+      addLog(`Deleted mail account`, "HIGH");
+    }
   };
 
   const stats = [
@@ -1004,17 +1030,35 @@ export default function AdminDashboard() {
                 <h2 className="text-lg font-bold">Mail Infrastructure</h2>
                 <p className="text-xs text-gray-500">Centralized SMTP/IMAP configuration for all platform departments.</p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600">
-                <Mail className="h-5 w-5" />
-              </div>
+              <button 
+                onClick={() => {
+                  setTempMailConfig({
+                    id: "",
+                    name: "",
+                    category: "Global",
+                    smtpHost: "smtp.gmail.com",
+                    smtpPort: "587",
+                    imapHost: "imap.gmail.com",
+                    imapPort: "993",
+                    user: "",
+                    pass: ""
+                  });
+                  setIsAddAccountModalOpen(true);
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-500 transition-all"
+              >
+                <Mail className="h-4 w-4" />
+                Add Mail Account
+              </button>
             </div>
             <div className="p-0">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
                 <thead className="bg-gray-50/50 dark:bg-zinc-900/20">
                   <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Department / Section</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Account Name</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Category</th>
                     <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Assigned Email</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Connection Status</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-bold text-gray-500 uppercase">Status</th>
                     <th className="px-6 py-4 text-right text-[10px] font-bold uppercase text-gray-500">Actions</th>
                   </tr>
                 </thead>
@@ -1022,7 +1066,12 @@ export default function AdminDashboard() {
                   {mailAccounts.map((acc: any) => (
                     <tr key={acc.id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/30 transition-colors">
                       <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">{acc.name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500 font-mono">{acc.email || 'None'}</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider">
+                          {acc.category || 'Uncategorized'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 font-mono">{acc.user || 'None'}</td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold ${
                           acc.status === 'Connected' ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-500'
@@ -1032,11 +1081,18 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-3">
-                        <button onClick={() => handleResetMailConfig(acc.id)} className="text-red-600 hover:text-red-500 text-xs font-bold">Reset</button>
-                        <button onClick={() => handleOpenMailConfig(acc.id)} className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">Configure</button>
+                        <button onClick={() => handleDeleteMailAccount(acc.id)} className="text-red-600 hover:text-red-500 text-xs font-bold">Delete</button>
+                        <button onClick={() => handleOpenMailConfig(acc)} className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-500">Configure</button>
                       </td>
                     </tr>
                   ))}
+                  {mailAccounts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-gray-500 italic text-sm">
+                        No mail accounts configured. Click "Add Mail Account" to get started.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1044,19 +1100,36 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Global Mail Modal */}
-      {isMailModalOpen && (
+      {/* Global Mail Modal (Configure Existing) */}
+      {isMailModalOpen && activeMailAccount && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Configure {activeMailDept.toUpperCase()} Mailbox</h2>
-                <p className="text-xs text-gray-500 mt-1">This will automatically sync to all users in this section.</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Configure {tempMailConfig.name}</h2>
+                <p className="text-xs text-gray-500 mt-1">Update SMTP and IMAP settings for this account.</p>
               </div>
               <button onClick={() => setIsMailModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
             </div>
             
             <form onSubmit={handleSaveMailConfig} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Account Name</label>
+                  <input required value={tempMailConfig.name} onChange={e => setTempMailConfig({...tempMailConfig, name: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Category</label>
+                  <select 
+                    value={tempMailConfig.category} 
+                    onChange={e => setTempMailConfig({...tempMailConfig, category: e.target.value})} 
+                    className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800 text-sm"
+                  >
+                    {defaultCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">IMAP Host</label>
@@ -1092,7 +1165,80 @@ export default function AdminDashboard() {
               <div className="mt-8 flex justify-end gap-3 pt-6 border-t dark:border-zinc-800">
                 <button type="button" onClick={() => setIsMailModalOpen(false)} className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-zinc-400">Cancel</button>
                 <button type="submit" className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-bold text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20">
-                  Push Configuration
+                  Update Configuration
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Mail Account Modal */}
+      {isAddAccountModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Mail Account</h2>
+                <p className="text-xs text-gray-500 mt-1">Configure a new SMTP/IMAP connection and assign a category.</p>
+              </div>
+              <button onClick={() => setIsAddAccountModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+            </div>
+            
+            <form onSubmit={handleAddMailAccount} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Account Name</label>
+                  <input required placeholder="e.g. Global Support" value={tempMailConfig.name} onChange={e => setTempMailConfig({...tempMailConfig, name: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" />
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Category</label>
+                  <select 
+                    value={tempMailConfig.category} 
+                    onChange={e => setTempMailConfig({...tempMailConfig, category: e.target.value})} 
+                    className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800 text-sm"
+                  >
+                    {defaultCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">IMAP Host</label>
+                  <input required value={tempMailConfig.imapHost} onChange={e => setTempMailConfig({...tempMailConfig, imapHost: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">IMAP Port</label>
+                  <input required value={tempMailConfig.imapPort} onChange={e => setTempMailConfig({...tempMailConfig, imapPort: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">SMTP Host</label>
+                  <input required value={tempMailConfig.smtpHost} onChange={e => setTempMailConfig({...tempMailConfig, smtpHost: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">SMTP Port</label>
+                  <input required value={tempMailConfig.smtpPort} onChange={e => setTempMailConfig({...tempMailConfig, smtpPort: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">Email / User</label>
+                <input required type="email" value={tempMailConfig.user} onChange={e => setTempMailConfig({...tempMailConfig, user: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" placeholder="e.g. support@gaio.uk" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-gray-500 mb-1">App Password</label>
+                <input required type="password" value={tempMailConfig.pass} onChange={e => setTempMailConfig({...tempMailConfig, pass: e.target.value})} className="w-full p-2.5 rounded-lg border dark:bg-[#1a1a1a] dark:border-zinc-800" placeholder="••••••••••••••••" />
+              </div>
+
+              <div className="mt-8 flex justify-end gap-3 pt-6 border-t dark:border-zinc-800">
+                <button type="button" onClick={() => setIsAddAccountModalOpen(false)} className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-zinc-400">Cancel</button>
+                <button type="submit" className="rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-bold text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20">
+                  Add Account
                 </button>
               </div>
             </form>

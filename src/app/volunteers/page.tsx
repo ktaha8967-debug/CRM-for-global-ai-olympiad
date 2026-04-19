@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { 
   User, 
   GraduationCap, 
@@ -23,7 +24,9 @@ import {
   Briefcase,
   ExternalLink,
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  Globe,
+  Link
 } from "lucide-react";
 
 interface VolunteerTask {
@@ -42,16 +45,18 @@ interface VolunteerNote {
 
 interface Volunteer {
   id: string;
-  name: string;
-  university: string;
-  skills: string[];
-  status: "Applied" | "Approved" | "Assigned" | "Onboarding" | "Inactive";
-  event: string;
+  full_name: string;
   email: string;
-  phone: string;
+  university: string;
+  country: string;
+  skills: string[];
   availability: string;
-  experience: string;
-  joinedAt: string;
+  cv_url: string;
+  status: string;
+  created_at: string;
+  assigned_role: string;
+  event_assigned: string;
+  metadata?: any;
   tasks: VolunteerTask[];
   notes: VolunteerNote[];
   hasCertificate: boolean;
@@ -60,16 +65,17 @@ interface Volunteer {
 const initialVolunteers: Volunteer[] = [
   { 
     id: "V-001", 
-    name: "Alice Thompson", 
-    university: "Stanford University", 
-    skills: ["AI Ethics", "Logistics"], 
-    status: "Assigned", 
-    event: "Tokyo AI Challenge", 
+    full_name: "Alice Thompson", 
     email: "alice.t@stanford.edu",
-    phone: "+1 415 555 0123",
+    university: "Stanford University", 
+    country: "USA",
+    skills: ["AI Ethics", "Logistics"], 
     availability: "Weekends",
-    experience: "Lead volunteer for 3 hackathons.",
-    joinedAt: "2026-01-10",
+    cv_url: "https://cv.alice.com",
+    status: "Assigned", 
+    created_at: "2026-01-10",
+    assigned_role: "Lead Volunteer",
+    event_assigned: "Tokyo AI Challenge", 
     tasks: [
       { id: "T-1", title: "Complete Safety Briefing", status: "Completed", dueDate: "2026-04-01" },
       { id: "T-2", title: "Review Venue Layout", status: "Pending", dueDate: "2026-04-15" }
@@ -81,16 +87,17 @@ const initialVolunteers: Volunteer[] = [
   },
   { 
     id: "V-002", 
-    name: "Robert Chen", 
-    university: "Oxford University", 
-    skills: ["Python", "Mentorship"], 
-    status: "Approved", 
-    event: "N/A", 
+    full_name: "Robert Chen", 
     email: "r.chen@ox.ac.uk",
-    phone: "+44 20 7946 0123",
+    university: "Oxford University", 
+    country: "UK",
+    skills: ["Python", "Mentorship"], 
     availability: "Full-time",
-    experience: "CS Graduate student.",
-    joinedAt: "2026-02-05",
+    cv_url: "https://cv.robert.com",
+    status: "Approved", 
+    created_at: "2026-02-05",
+    assigned_role: "Technical Mentor",
+    event_assigned: "N/A", 
     tasks: [],
     notes: [],
     hasCertificate: true
@@ -111,12 +118,21 @@ export default function VolunteersPage() {
   const [selectedVolunteer, setSelectedVolunteer] = useState<Volunteer | null>(null);
 
   // Forms state
-  const [formData, setFormData] = useState({ name: "", university: "", skills: "", email: "", phone: "", availability: "", experience: "" });
+  const [formData, setFormData] = useState({ 
+    full_name: "", 
+    email: "", 
+    university: "", 
+    country: "", 
+    skills: "", 
+    availability: "", 
+    cv_url: "",
+    metadata: ""
+  });
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newNoteText, setNewNoteText] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem('gaio_volunteers_v2');
+    const saved = localStorage.getItem('gaio_volunteers_v5');
     if (saved) {
       try {
         setVolunteers(JSON.parse(saved));
@@ -131,12 +147,12 @@ export default function VolunteersPage() {
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('gaio_volunteers_v2', JSON.stringify(volunteers));
+      localStorage.setItem('gaio_volunteers_v5', JSON.stringify(volunteers));
     }
   }, [volunteers, isLoaded]);
 
   const filteredVolunteers = volunteers.filter(v => {
-    const matchesSearch = v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = v.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           v.university.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           v.skills.some(s => s.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === "ALL" || v.status.toUpperCase() === statusFilter;
@@ -145,24 +161,46 @@ export default function VolunteersPage() {
 
   const handleAddVolunteer = (e: React.FormEvent) => {
     e.preventDefault();
+
+    let parsedMetadata = {};
+    try {
+      if (formData.metadata) {
+        parsedMetadata = JSON.parse(formData.metadata);
+      }
+    } catch (e) {
+      alert("Invalid JSON in metadata field");
+      return;
+    }
+
     const newV: Volunteer = {
       id: `V-${Date.now().toString().slice(-4)}`,
-      name: formData.name,
-      university: formData.university,
-      skills: formData.skills.split(',').map(s => s.trim()).filter(s => s),
-      status: "Applied",
-      event: "N/A",
+      full_name: formData.full_name,
       email: formData.email,
-      phone: formData.phone,
+      university: formData.university,
+      country: formData.country,
+      skills: formData.skills.split(',').map(s => s.trim()).filter(s => s),
       availability: formData.availability,
-      experience: formData.experience,
-      joinedAt: new Date().toISOString().split('T')[0],
+      cv_url: formData.cv_url,
+      status: "Applied",
+      created_at: new Date().toISOString().split('T')[0],
+      assigned_role: "N/A",
+      event_assigned: "N/A",
+      metadata: parsedMetadata,
       tasks: [],
       notes: [],
       hasCertificate: false
     };
     setVolunteers([newV, ...volunteers]);
-    setFormData({ name: "", university: "", skills: "", email: "", phone: "", availability: "", experience: "" });
+    setFormData({ 
+      full_name: "", 
+      email: "", 
+      university: "", 
+      country: "", 
+      skills: "", 
+      availability: "", 
+      cv_url: "",
+      metadata: ""
+    });
     setIsModalOpen(false);
   };
 
@@ -199,7 +237,7 @@ export default function VolunteersPage() {
       timestamp: new Date().toLocaleString()
     };
     updateVolunteer({ ...selectedVolunteer, notes: [note, ...selectedVolunteer.notes] });
-    addNotification(`New admin log for ${selectedVolunteer.name}`, "Volunteer Network");
+    addNotification(`New admin log for ${selectedVolunteer.full_name}`, "Volunteer Network");
     setNewNoteText("");
   };
 
@@ -276,10 +314,10 @@ export default function VolunteersPage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-5">
                   <div className="h-16 w-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center font-black text-2xl text-blue-600 dark:text-blue-400 shadow-inner group-hover:scale-110 transition-transform">
-                    {v.name.charAt(0)}
+                    {v.full_name.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter leading-none">{v.name}</h3>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter leading-none">{v.full_name}</h3>
                     <div className="flex items-center gap-2 mt-2 text-[10px] font-black text-blue-600 uppercase tracking-widest">
                       <GraduationCap className="h-3 w-3" />
                       {v.university}
@@ -307,7 +345,7 @@ export default function VolunteersPage() {
                 <div className="pt-6 border-t border-gray-50 dark:border-zinc-800 flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Assignment</span>
-                    <span className="text-xs font-bold text-gray-700 dark:text-zinc-300 mt-1">{v.event === 'N/A' ? 'Unassigned' : v.event}</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-zinc-300 mt-1">{v.event_assigned === 'N/A' ? 'Unassigned' : v.event_assigned}</span>
                   </div>
                   <button 
                     onClick={() => { setSelectedVolunteer(v); setIsManageOpen(true); setActiveManageTab("OVERVIEW"); }}
@@ -330,7 +368,7 @@ export default function VolunteersPage() {
       {/* Register Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-xl rounded-[3rem] bg-white p-12 shadow-2xl dark:bg-[#0a0a0a] border-4 border-blue-600/10">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[3rem] bg-white p-12 shadow-2xl dark:bg-[#0a0a0a] border-4 border-blue-600/10">
             <div className="flex items-center justify-between mb-10">
               <h2 className="text-3xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">Volunteer Onboarding</h2>
               <button onClick={() => setIsModalOpen(false)} className="p-3 bg-gray-50 dark:bg-zinc-900 rounded-2xl text-gray-400"><X className="h-6 w-6" /></button>
@@ -338,7 +376,7 @@ export default function VolunteersPage() {
             <form onSubmit={handleAddVolunteer} className="grid grid-cols-2 gap-6">
               <div className="col-span-2 space-y-2">
                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Full Name</label>
-                <input required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-black text-xl shadow-inner text-gray-900 dark:text-white" placeholder="NAME" />
+                <input required value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-black text-xl shadow-inner text-gray-900 dark:text-white" placeholder="NAME" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">University</label>
@@ -348,9 +386,25 @@ export default function VolunteersPage() {
                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Email</label>
                 <input required type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder="EMAIL" />
               </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Country</label>
+                <input required value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder="COUNTRY" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">CV URL</label>
+                <input type="url" value={formData.cv_url} onChange={(e) => setFormData({...formData, cv_url: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder="https://" />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Availability</label>
+                <input value={formData.availability} onChange={(e) => setFormData({...formData, availability: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder="Weekends, Full-time..." />
+              </div>
               <div className="col-span-2 space-y-2">
                 <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Skills (Comma separated)</label>
                 <input value={formData.skills} onChange={(e) => setFormData({...formData, skills: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder="AI, PYTHON, LOGISTICS..." />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Metadata (JSON)</label>
+                <textarea value={formData.metadata} onChange={(e) => setFormData({...formData, metadata: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-2xl px-6 py-4 font-bold text-sm shadow-inner text-gray-900 dark:text-white" placeholder='{"key": "value"}' rows={3} />
               </div>
               <button type="submit" className="col-span-2 mt-4 bg-blue-600 text-white font-black py-6 rounded-[2rem] shadow-2xl shadow-blue-600/40 uppercase tracking-[0.4em] text-xs hover:bg-blue-500 transition-all">Register Candidate</button>
             </form>
@@ -369,13 +423,13 @@ export default function VolunteersPage() {
                   <User className="h-12 w-12" />
                 </div>
                 <div>
-                  <h2 className="text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">{selectedVolunteer.name}</h2>
+                  <h2 className="text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic">{selectedVolunteer.full_name}</h2>
                   <div className="flex items-center gap-6 mt-3">
                     <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                       selectedVolunteer.status === 'Assigned' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
                     }`}>{selectedVolunteer.status}</span>
                     <span className="text-gray-300 dark:text-zinc-700">|</span>
-                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-2"><MapPin className="w-4 h-4"/> Global Network</span>
+                    <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-2"><MapPin className="w-4 h-4"/> {selectedVolunteer.country}</span>
                   </div>
                 </div>
               </div>
@@ -410,8 +464,8 @@ export default function VolunteersPage() {
                 <div className="space-y-12 animate-in fade-in duration-300">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     {[
-                      { l: "Joined GAIO", v: selectedVolunteer.joinedAt, i: Calendar },
-                      { l: "Assigned Event", v: selectedVolunteer.event, i: MapPin },
+                      { l: "Joined GAIO", v: selectedVolunteer.created_at, i: Calendar },
+                      { l: "Assigned Event", v: selectedVolunteer.event_assigned, i: MapPin },
                       { l: "Pending Tasks", v: selectedVolunteer.tasks.filter(t => t.status === 'Pending').length, i: ClipboardList },
                       { l: "Certification", v: selectedVolunteer.hasCertificate ? "ISSUED" : "PENDING", i: Award }
                     ].map(item => (
@@ -436,8 +490,11 @@ export default function VolunteersPage() {
                             <option>Applied</option><option>Onboarding</option><option>Approved</option><option>Assigned</option><option>Inactive</option>
                           </select>
                         </div>
+                        <div className="space-y-2"><label className="text-[10px] font-black uppercase text-gray-400">Assigned Role</label>
+                          <input value={selectedVolunteer.assigned_role} onChange={(e) => updateVolunteer({...selectedVolunteer, assigned_role: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 rounded-2xl px-6 py-4 font-bold text-sm border-0 shadow-inner" />
+                        </div>
                         <div className="space-y-2"><label className="text-[10px] font-black uppercase text-gray-400">Target Event</label>
-                          <input value={selectedVolunteer.event} onChange={(e) => updateVolunteer({...selectedVolunteer, event: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 rounded-2xl px-6 py-4 font-bold text-sm border-0 shadow-inner" />
+                          <input value={selectedVolunteer.event_assigned} onChange={(e) => updateVolunteer({...selectedVolunteer, event_assigned: e.target.value})} className="w-full bg-gray-50 dark:bg-zinc-900 rounded-2xl px-6 py-4 font-bold text-sm border-0 shadow-inner" />
                         </div>
                         <div className="grid grid-cols-2 gap-6">
                           <div className="space-y-2"><label className="text-[10px] font-black uppercase text-gray-400">Certification</label>
@@ -462,13 +519,27 @@ export default function VolunteersPage() {
                           ))}
                         </div>
                         <div className="pt-8 border-t border-white/10">
-                          <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">Professional Experience</p>
-                          <p className="text-sm font-bold text-zinc-400 leading-relaxed italic">"{selectedVolunteer.experience}"</p>
+                          <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">CV / Resume</p>
+                          {selectedVolunteer.cv_url ? (
+                            <a href={selectedVolunteer.cv_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-blue-400 hover:underline">
+                              <ExternalLink className="h-4 w-4" /> View Document
+                            </a>
+                          ) : (
+                            <p className="text-sm font-bold text-zinc-500 italic">No CV uploaded</p>
+                          )}
                         </div>
                         <div className="pt-4">
                           <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">Availability</p>
                           <p className="text-lg font-black">{selectedVolunteer.availability}</p>
                         </div>
+                        {selectedVolunteer.metadata && (
+                          <div className="pt-8 border-t border-white/10">
+                            <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">Metadata</p>
+                            <pre className="text-xs text-zinc-400 overflow-x-auto p-3 bg-white/5 rounded-lg border border-white/5">
+                              {JSON.stringify(selectedVolunteer.metadata, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -557,7 +628,7 @@ export default function VolunteersPage() {
             </div>
 
             <div className="p-8 border-t dark:border-zinc-800 text-center bg-gray-50/50 dark:bg-zinc-900/50">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Volunteer Logistics System • v2.0.4</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Volunteer Logistics System • v5.0.0</span>
             </div>
           </div>
         </div>

@@ -29,6 +29,10 @@ export default function MailboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   
+  // Accounts State
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
+
   // Modals
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSmtpOpen, setIsSmtpOpen] = useState(false);
@@ -36,15 +40,29 @@ export default function MailboxPage() {
   // Forms
   const [composeData, setComposeData] = useState({ to: "", subject: "", body: "" });
   
-  const [mailConfig, setMailConfig] = useState(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('gaioMailConfig');
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem('gaio_mail_accounts_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setAccounts(parsed);
+        if (parsed.length > 0) setSelectedAccount(parsed[0]);
+      } else {
+        // Fallback to legacy
+        const legacy = localStorage.getItem('gaioMailConfig');
+        if (legacy) {
+          const config = JSON.parse(legacy);
+          const initial = [{ ...config, id: 'legacy', name: 'Global Main', category: 'Global' }];
+          setAccounts(initial);
+          setSelectedAccount(initial[0]);
+        }
+      }
     }
-    return { smtpHost: "smtp.example.com", smtpPort: "587", imapHost: "imap.example.com", imapPort: "993", user: "admin@gaioevent.uk", pass: "" };
-  });
+  }, []);
 
   const fetchEmails = async (labelId = activeFolder) => {
+    if (!selectedAccount || !selectedAccount.user) return;
+    
     setIsLoading(true);
     setError(null);
     try {
@@ -53,10 +71,10 @@ export default function MailboxPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           labelId,
-          imapHost: mailConfig.imapHost,
-          imapPort: mailConfig.imapPort,
-          user: mailConfig.user,
-          pass: mailConfig.pass
+          imapHost: selectedAccount.imapHost,
+          imapPort: selectedAccount.imapPort,
+          user: selectedAccount.user,
+          pass: selectedAccount.pass
         })
       });
 
@@ -73,7 +91,7 @@ export default function MailboxPage() {
 
   useEffect(() => {
     fetchEmails();
-  }, [activeFolder]);
+  }, [activeFolder, selectedAccount]);
 
   const handleGmailConnect = () => {
     window.location.href = '/api/auth/google';
@@ -81,7 +99,7 @@ export default function MailboxPage() {
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!composeData.to || !composeData.subject) return;
+    if (!composeData.to || !composeData.subject || !selectedAccount) return;
 
     setIsLoading(true);
     try {
@@ -89,10 +107,10 @@ export default function MailboxPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          smtpHost: mailConfig.smtpHost,
-          smtpPort: mailConfig.smtpPort,
-          user: mailConfig.user,
-          pass: mailConfig.pass,
+          smtpHost: selectedAccount.smtpHost,
+          smtpPort: selectedAccount.smtpPort,
+          user: selectedAccount.user,
+          pass: selectedAccount.pass,
           to: composeData.to,
           subject: composeData.subject,
           body: composeData.body
@@ -117,12 +135,38 @@ export default function MailboxPage() {
     setEmails(emails.map(e => e.id === id ? { ...e, starred: !e.starred } : e));
   };
 
+  const handleConfigSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In this view, we just allow temporary override or redirect to admin
+    alert("Please use the Admin Panel to permanently configure mail accounts.");
+    setIsSmtpOpen(false);
+  };
+
   return (
     <div className="flex h-[calc(100vh-160px)] gap-6 overflow-hidden relative">
       
       {/* Mail Sidebar */}
       <div className="flex w-64 flex-col rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#111]">
         <div className="p-4 space-y-3">
+          {/* Account Switcher */}
+          <div className="relative group">
+            <label className="text-[10px] font-bold uppercase text-gray-400 mb-1 block px-1">Active Mailbox</label>
+            <select 
+              value={selectedAccount?.id || ""} 
+              onChange={(e) => setSelectedAccount(accounts.find(a => a.id === e.target.value))}
+              className="w-full bg-gray-50 dark:bg-zinc-900 border-0 rounded-lg px-3 py-2 text-sm font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+            >
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.category}: {acc.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-[26px] pointer-events-none text-blue-600">
+              <MoreVertical className="h-3 w-3" />
+            </div>
+          </div>
+
           <button 
             onClick={() => setIsComposeOpen(true)}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"

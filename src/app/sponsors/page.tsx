@@ -56,11 +56,19 @@ interface Plan {
 
 interface Sponsor {
   id: string;
-  name: string;
-  tier: string;
-  industry: string;
-  funding: string;
+  entity_name: string;
+  organisation: string;
+  address: string;
+  representative_name: string;
+  website: string;
+  email: string;
+  country: string;
+  strategic_level: string;
+  projected_allocation: string;
+  vision: string;
   status: string;
+  created_at: string;
+  metadata?: any;
   plans: Plan[];
   contracts: Contract[];
   messages: Message[];
@@ -69,11 +77,18 @@ interface Sponsor {
 const initialSponsors: Sponsor[] = [
   { 
     id: "S-1", 
-    name: "Global AI Tech", 
-    tier: "Global Strategic Partner", 
-    industry: "Technology", 
-    funding: "$500,000", 
+    entity_name: "Global AI Tech Corp", 
+    organisation: "Global AI Tech", 
+    address: "123 Innovation Way, San Francisco, CA",
+    representative_name: "Sarah Chen",
+    website: "https://globalaitech.com",
+    email: "sarah@globalaitech.com",
+    country: "USA",
+    strategic_level: "Global Strategic Partner", 
+    projected_allocation: "$500,000", 
+    vision: "To lead the world in ethical AI development.",
     status: "Active",
+    created_at: "2026-01-15",
     plans: [
       { id: "P-1", name: "AI Summit Sponsorship", details: "Main stage branding and 10 VIP passes", cost: "$50,000", status: "Accepted" }
     ],
@@ -86,11 +101,18 @@ const initialSponsors: Sponsor[] = [
   },
   { 
     id: "S-2", 
-    name: "Future Finance", 
-    tier: "Innovation Partner", 
-    industry: "Finance", 
-    funding: "$250,000", 
+    entity_name: "Future Finance Ltd", 
+    organisation: "Future Finance", 
+    address: "45 Financial St, London, UK",
+    representative_name: "Mark Thompson",
+    website: "https://futurefinance.co.uk",
+    email: "mark@futurefinance.co.uk",
+    country: "UK",
+    strategic_level: "Innovation Partner", 
+    projected_allocation: "$250,000", 
+    vision: "Modernizing finance through AI.",
     status: "Active",
+    created_at: "2026-02-10",
     plans: [],
     contracts: [],
     messages: []
@@ -101,7 +123,19 @@ export default function SponsorsPage() {
   const { user, addNotification } = useAuth();
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: "", tier: "Technology Partner", industry: "", funding: "" });
+  const [formData, setFormData] = useState({ 
+    entity_name: "", 
+    organisation: "", 
+    address: "", 
+    representative_name: "", 
+    website: "", 
+    email: "", 
+    country: "", 
+    strategic_level: "Technology Partner", 
+    projected_allocation: "", 
+    vision: "", 
+    metadata: "" 
+  });
 
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [manageData, setManageData] = useState<Sponsor | null>(null);
@@ -120,7 +154,7 @@ export default function SponsorsPage() {
   const [newMessage, setNewMessage] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem('gaio_sponsors');
+    const saved = localStorage.getItem('gaio_sponsors_v5');
     if (saved) {
       setSponsors(JSON.parse(saved));
     } else {
@@ -130,40 +164,70 @@ export default function SponsorsPage() {
 
   useEffect(() => {
     if (sponsors.length > 0) {
-      localStorage.setItem('gaio_sponsors', JSON.stringify(sponsors));
+      localStorage.setItem('gaio_sponsors_v5', JSON.stringify(sponsors));
     }
   }, [sponsors]);
 
   const saveToStore = (data: Sponsor[]) => {
     setSponsors(data);
-    localStorage.setItem('gaio_sponsors', JSON.stringify(data));
+    localStorage.setItem('gaio_sponsors_v5', JSON.stringify(data));
   };
 
   const updateSponsor = (updatedSponsor: Sponsor) => {
     const newSponsors = sponsors.map(s => s.id === updatedSponsor.id ? updatedSponsor : s);
     setSponsors(newSponsors);
     setManageData(updatedSponsor);
-    localStorage.setItem('gaio_sponsors', JSON.stringify(newSponsors));
+    localStorage.setItem('gaio_sponsors_v5', JSON.stringify(newSponsors));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name) return;
+    if (!formData.entity_name) return;
+
+    let parsedMetadata = {};
+    try {
+      if (formData.metadata) {
+        parsedMetadata = JSON.parse(formData.metadata);
+      }
+    } catch (e) {
+      alert("Invalid JSON in metadata field");
+      return;
+    }
 
     const newSponsor: Sponsor = {
       id: `S-${Date.now()}`,
-      name: formData.name,
-      tier: formData.tier,
-      industry: formData.industry || "General",
-      funding: formData.funding || "TBD",
+      entity_name: formData.entity_name,
+      organisation: formData.organisation,
+      address: formData.address,
+      representative_name: formData.representative_name,
+      website: formData.website,
+      email: formData.email,
+      country: formData.country,
+      strategic_level: formData.strategic_level,
+      projected_allocation: formData.projected_allocation || "TBD",
+      vision: formData.vision,
       status: "Pending",
+      created_at: new Date().toISOString().split('T')[0],
+      metadata: parsedMetadata,
       plans: [],
       contracts: [],
       messages: []
     };
 
     saveToStore([newSponsor, ...sponsors]);
-    setFormData({ name: "", tier: "Technology Partner", industry: "", funding: "" });
+    setFormData({ 
+      entity_name: "", 
+      organisation: "", 
+      address: "", 
+      representative_name: "", 
+      website: "", 
+      email: "", 
+      country: "", 
+      strategic_level: "Technology Partner", 
+      projected_allocation: "", 
+      vision: "", 
+      metadata: "" 
+    });
     setIsModalOpen(false);
   };
 
@@ -253,6 +317,14 @@ export default function SponsorsPage() {
     }
   };
 
+  const rejectContract = (contractId: string) => {
+    if (!manageData) return;
+    const updatedContracts = manageData.contracts.map(c => 
+      c.id === contractId ? { ...c, status: "Draft" as const } : c
+    );
+    updateSponsor({ ...manageData, contracts: updatedContracts });
+  };
+
   // Signature Canvas Logic
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDrawing(true);
@@ -325,7 +397,7 @@ export default function SponsorsPage() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     updateSponsor({ ...manageData, messages: [...manageData.messages, msg] });
-    addNotification(`New message to ${manageData.name}`, "Sponsors & Partners");
+    addNotification(`New message to ${manageData.entity_name}`, "Sponsors & Partners");
     setNewMessage("");
   };
 
@@ -358,8 +430,8 @@ export default function SponsorsPage() {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/20 mb-4">
               <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{sponsor.name}</h3>
-            <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mt-1 truncate">{sponsor.tier}</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{sponsor.entity_name}</h3>
+            <p className="text-sm text-blue-600 dark:text-blue-400 font-medium mt-1 truncate">{sponsor.strategic_level}</p>
             
             <div className="mt-6 space-y-3">
               <div className="flex items-center justify-between text-xs font-bold">
@@ -369,8 +441,8 @@ export default function SponsorsPage() {
                 }`}>{sponsor.status}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-zinc-400">Active Plans</span>
-                <span className="text-gray-900 dark:text-white font-black">{sponsor.plans.length}</span>
+                <span className="text-gray-500 dark:text-zinc-400">Projected Allocation</span>
+                <span className="text-gray-900 dark:text-white font-black">{sponsor.projected_allocation}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-500 dark:text-zinc-400">Contracts</span>
@@ -388,33 +460,69 @@ export default function SponsorsPage() {
       {/* Add Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-8 shadow-2xl dark:bg-[#111] dark:border dark:border-zinc-800">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Partner</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Company Name</label>
-                  <input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Entity Name</label>
+                    <input type="text" required value={formData.entity_name} onChange={(e) => setFormData({...formData, entity_name: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Organisation</label>
+                    <input type="text" required value={formData.organisation} onChange={(e) => setFormData({...formData, organisation: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Tier</label>
-                  <select value={formData.tier} onChange={(e) => setFormData({...formData, tier: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800">
-                    <option value="Global Strategic Partner">Global Strategic Partner</option>
-                    <option value="Innovation Partner">Innovation Partner</option>
-                    <option value="Technology Partner">Technology Partner</option>
-                    <option value="Education Partner">Education Partner</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Address</label>
+                  <input type="text" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Representative Name</label>
+                    <input type="text" required value={formData.representative_name} onChange={(e) => setFormData({...formData, representative_name: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Email</label>
+                    <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Country</label>
+                    <input type="text" required value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Strategic Level</label>
+                    <select value={formData.strategic_level} onChange={(e) => setFormData({...formData, strategic_level: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800">
+                      <option value="Global Strategic Partner">Global Strategic Partner</option>
+                      <option value="Innovation Partner">Innovation Partner</option>
+                      <option value="Technology Partner">Technology Partner</option>
+                      <option value="Education Partner">Education Partner</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Website</label>
+                    <input type="url" value={formData.website} onChange={(e) => setFormData({...formData, website: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" placeholder="https://" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Projected Allocation</label>
+                    <input type="text" placeholder="e.g. $100,000" value={formData.projected_allocation} onChange={(e) => setFormData({...formData, projected_allocation: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Industry</label>
-                  <input type="text" value={formData.industry} onChange={(e) => setFormData({...formData, industry: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Vision</label>
+                  <textarea value={formData.vision} onChange={(e) => setFormData({...formData, vision: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" rows={2} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Funding Amount</label>
-                  <input type="text" placeholder="e.g. $100,000" value={formData.funding} onChange={(e) => setFormData({...formData, funding: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-zinc-300 mb-1">Metadata (JSON)</label>
+                  <textarea value={formData.metadata} onChange={(e) => setFormData({...formData, metadata: e.target.value})} className="block w-full rounded-lg border-0 py-2.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-blue-600 dark:bg-[#1a1a1a] dark:text-white dark:ring-zinc-800" placeholder='{"key": "value"}' rows={3} />
                 </div>
               </div>
               <div className="mt-8 flex justify-end gap-3">
@@ -437,11 +545,11 @@ export default function SponsorsPage() {
                   <Building2 className="h-8 w-8" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-gray-900 dark:text-white">{manageData.name}</h2>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white">{manageData.entity_name}</h2>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">{manageData.tier}</span>
+                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">{manageData.strategic_level}</span>
                     <span className="text-gray-300 dark:text-zinc-700">|</span>
-                    <span className="text-xs text-gray-500 font-medium">{manageData.industry}</span>
+                    <span className="text-xs text-gray-500 font-medium">{manageData.organisation}</span>
                   </div>
                 </div>
               </div>
@@ -485,7 +593,7 @@ export default function SponsorsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     {[
                       { label: "Status", value: manageData.status, icon: ShieldCheck, color: "text-green-500" },
-                      { label: "Total Funding", value: manageData.funding, icon: DollarSign, color: "text-blue-600" },
+                      { label: "Projected Allocation", value: manageData.projected_allocation, icon: DollarSign, color: "text-blue-600" },
                       { label: "Active Plans", value: manageData.plans.length, icon: Zap, color: "text-purple-600" },
                       { label: "Signed Documents", value: manageData.contracts.filter(c => c.status === 'Signed').length, icon: FileText, color: "text-amber-600" }
                     ].map((stat) => (
@@ -501,41 +609,50 @@ export default function SponsorsPage() {
                     <div className="space-y-6">
                       <h3 className="text-lg font-black flex items-center gap-2">
                         <Briefcase className="h-5 w-5 text-blue-600" />
-                        Quick Profile Edit
+                        Partner Profile
                       </h3>
                       <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">Partner Status</label>
-                          <select 
-                            value={manageData.status} 
-                            onChange={(e) => updateSponsor({...manageData, status: e.target.value})}
-                            className="w-full mt-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-3 text-sm font-bold"
-                          >
-                            <option>Active</option>
-                            <option>Pending</option>
-                            <option>Inactive</option>
-                          </select>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Representative</label>
+                            <p className="font-bold text-gray-900 dark:text-white">{manageData.representative_name}</p>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Email</label>
+                            <p className="font-bold text-gray-900 dark:text-white">{manageData.email}</p>
+                          </div>
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">Tier Level</label>
-                          <select 
-                            value={manageData.tier} 
-                            onChange={(e) => updateSponsor({...manageData, tier: e.target.value})}
-                            className="w-full mt-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-3 text-sm font-bold"
-                          >
-                            <option>Global Strategic Partner</option>
-                            <option>Innovation Partner</option>
-                            <option>Technology Partner</option>
-                            <option>Education Partner</option>
-                          </select>
+                          <label className="text-[10px] font-bold text-gray-500 uppercase">Address</label>
+                          <p className="font-bold text-gray-900 dark:text-white">{manageData.address}</p>
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Country</label>
+                            <p className="font-bold text-gray-900 dark:text-white">{manageData.country}</p>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Website</label>
+                            <p className="font-bold text-blue-600 truncate">
+                              <a href={manageData.website} target="_blank" rel="noopener noreferrer">{manageData.website}</a>
+                            </p>
+                          </div>
+                        </div>
+                        {manageData.metadata && (
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Metadata</label>
+                            <pre className="mt-1 text-[10px] bg-gray-100 dark:bg-zinc-900 p-2 rounded-lg overflow-x-auto">
+                              {JSON.stringify(manageData.metadata, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="p-8 rounded-3xl bg-blue-600 text-white relative overflow-hidden group">
                       <Zap className="absolute -right-4 -bottom-4 h-32 w-32 opacity-10 group-hover:scale-110 transition-transform" />
-                      <h3 className="text-xl font-black mb-2">Strategy Summary</h3>
+                      <h3 className="text-xl font-black mb-2">Vision Statement</h3>
                       <p className="text-sm text-blue-100 mb-6 leading-relaxed">
-                        This partner is critical for the upcoming AI World Expo. We are focusing on technology integration and strategic funding for the main stadium.
+                        {manageData.vision || "No vision statement provided."}
                       </p>
                       <button className="flex items-center gap-2 text-xs font-bold bg-white/10 hover:bg-white/20 py-2 px-4 rounded-full transition-all">
                         <ExternalLink className="h-3.5 w-3.5" /> View Full Dossier
@@ -628,98 +745,117 @@ export default function SponsorsPage() {
 
               {activeTab === "CONTRACTS" && (
                 <div className="space-y-10 animate-in slide-in-from-right-4 duration-300">
-                  {/* Create/Upload Section */}
-                  <div className="flex flex-col md:flex-row gap-10">
-                    <div className="flex-1 space-y-6">
-                      <h3 className="text-xl font-black">Draft New Agreement</h3>
-                      <div className="space-y-4">
-                        <input 
-                          type="text" 
-                          value={newContract.title}
-                          onChange={(e) => setNewContract({...newContract, title: e.target.value})}
-                          placeholder="Agreement Title..." 
-                          className="w-full bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl px-5 py-3 text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none"
-                        />
-                        <textarea 
-                          value={newContract.content}
-                          onChange={(e) => setNewContract({...newContract, content: e.target.value})}
-                          placeholder="Contract content and legal terms..."
-                          className="w-full bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl px-5 py-3 text-sm font-medium h-32 focus:ring-2 focus:ring-blue-600 outline-none"
-                        />
-                        <button 
-                          onClick={createContract}
-                          className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white dark:bg-white dark:text-black py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl"
-                        >
-                          <PenTool className="h-4 w-4" /> Create Draft
-                        </button>
+                  {/* Create/Upload Section - ADMIN ONLY */}
+                  {(user?.role === 'SUPER_ADMIN' || user?.roles?.includes('SUPER_ADMIN')) && (
+                    <div className="flex flex-col md:flex-row gap-10">
+                      <div className="flex-1 space-y-6">
+                        <h3 className="text-xl font-black">Draft New Agreement</h3>
+                        <div className="space-y-4">
+                          <input 
+                            type="text" 
+                            value={newContract.title}
+                            onChange={(e) => setNewContract({...newContract, title: e.target.value})}
+                            placeholder="Agreement Title..." 
+                            className="w-full bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl px-5 py-3 text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none"
+                          />
+                          <textarea 
+                            value={newContract.content}
+                            onChange={(e) => setNewContract({...newContract, content: e.target.value})}
+                            placeholder="Contract content and legal terms..."
+                            className="w-full bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-2xl px-5 py-3 text-sm font-medium h-32 focus:ring-2 focus:ring-blue-600 outline-none"
+                          />
+                          <button 
+                            onClick={createContract}
+                            className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white dark:bg-white dark:text-black py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl"
+                          >
+                            <PenTool className="h-4 w-4" /> Create Draft
+                          </button>
+                        </div>
+                      </div>
+                      <div className="w-full md:w-80 p-8 rounded-3xl border-2 border-dashed dark:border-zinc-800 flex flex-col items-center justify-center text-center">
+                        <Upload className="h-10 w-10 text-gray-300 mb-4" />
+                        <h4 className="font-black text-gray-900 dark:text-white mb-2">Upload Legal Files</h4>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase mb-6 tracking-widest">PDF, DOCX (Max 10MB)</p>
+                        <label className="cursor-pointer bg-blue-600/10 text-blue-600 py-3 px-6 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
+                          Browse Files
+                          <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.doc,.docx" />
+                        </label>
                       </div>
                     </div>
-                    <div className="w-full md:w-80 p-8 rounded-3xl border-2 border-dashed dark:border-zinc-800 flex flex-col items-center justify-center text-center">
-                      <Upload className="h-10 w-10 text-gray-300 mb-4" />
-                      <h4 className="font-black text-gray-900 dark:text-white mb-2">Upload Legal Files</h4>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-6 tracking-widest">PDF, DOCX (Max 10MB)</p>
-                      <label className="cursor-pointer bg-blue-600/10 text-blue-600 py-3 px-6 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
-                        Browse Files
-                        <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.doc,.docx" />
-                      </label>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Contract List */}
                   <div className="space-y-4">
                     <h3 className="text-xl font-black">Contract Registry</h3>
-                    {manageData.contracts.map((contract) => (
-                      <div key={contract.id} className="flex items-center justify-between p-6 rounded-3xl border dark:border-zinc-800 bg-white dark:bg-[#111] hover:shadow-xl transition-all group">
-                        <div className="flex items-center gap-6">
-                          <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${
-                            contract.status === 'Signed' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
-                          }`}>
-                            <FileText className="h-6 w-6" />
-                          </div>
-                          <div>
-                            <h4 className="font-black text-gray-900 dark:text-white">{contract.title}</h4>
-                            <div className="flex items-center gap-4 mt-1">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Created: {contract.createdAt}</span>
-                              <span className={`text-[10px] font-black uppercase tracking-widest ${
-                                contract.status === 'Signed' ? 'text-green-600' : 'text-amber-600'
-                              }`}>{contract.status}</span>
+                    {manageData.contracts.map((contract) => {
+                      const isAdmin = user?.role === 'SUPER_ADMIN' || user?.roles?.includes('SUPER_ADMIN');
+                      return (
+                        <div key={contract.id} className="flex items-center justify-between p-6 rounded-3xl border dark:border-zinc-800 bg-white dark:bg-[#111] hover:shadow-xl transition-all group">
+                          <div className="flex items-center gap-6">
+                            <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${
+                              contract.status === 'Signed' ? 'bg-green-100 text-green-600' : 
+                              contract.status === 'Rejected' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'
+                            }`}>
+                              <FileText className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <h4 className="font-black text-gray-900 dark:text-white">{contract.title}</h4>
+                              <div className="flex items-center gap-4 mt-1">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Created: {contract.createdAt}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${
+                                  contract.status === 'Signed' ? 'text-green-600' : 
+                                  contract.status === 'Rejected' ? 'text-red-600' : 'text-amber-600'
+                                }`}>{contract.status}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {contract.fileData && (
+                          <div className="flex items-center gap-3">
+                            {contract.fileData && (
+                              <button 
+                                onClick={() => openPdf(contract)}
+                                className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
+                                title="Open Original PDF"
+                              >
+                                <FileSearch className="h-5 w-5" />
+                              </button>
+                            )}
                             <button 
-                              onClick={() => openPdf(contract)}
-                              className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
-                              title="Open Original PDF"
+                              onClick={() => { setSelectedContract(contract); setIsViewingContract(true); }}
+                              className="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl text-gray-600 hover:text-blue-600 transition-all"
+                              title="View Document Details"
                             >
-                              <FileSearch className="h-5 w-5" />
+                              <Eye className="h-5 w-5" />
                             </button>
-                          )}
-                          <button 
-                            onClick={() => { setSelectedContract(contract); setIsViewingContract(true); }}
-                            className="p-3 bg-gray-50 dark:bg-zinc-900 rounded-xl text-gray-600 hover:text-blue-600 transition-all"
-                            title="View Document Details"
-                          >
-                            <Eye className="h-5 w-5" />
-                          </button>
-                          {contract.status !== 'Signed' && (
-                            <button 
-                              onClick={() => { setSelectedContract(contract); setIsSignModalOpen(true); }}
-                              className="flex items-center gap-2 bg-blue-600 text-white py-2.5 px-6 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
-                            >
-                              <PenTool className="h-4 w-4" /> Sign Digitally
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => { if(confirm("Remove contract?")) updateSponsor({...manageData, contracts: manageData.contracts.filter(c => c.id !== contract.id)}); }}
-                            className="p-3 text-gray-300 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                            
+                            {!isAdmin && contract.status !== 'Signed' && contract.status !== 'Rejected' && (
+                              <>
+                                <button 
+                                  onClick={() => rejectContract(contract.id)}
+                                  className="px-6 py-2.5 rounded-xl border-2 border-red-100 text-red-600 text-xs font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                                >
+                                  Reject Agreement
+                                </button>
+                                <button 
+                                  onClick={() => { setSelectedContract(contract); setIsSignModalOpen(true); }}
+                                  className="flex items-center gap-2 bg-blue-600 text-white py-2.5 px-6 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
+                                >
+                                  <PenTool className="h-4 w-4" /> Sign Digitally
+                                </button>
+                              </>
+                            )}
+
+                            {isAdmin && (
+                              <button 
+                                onClick={() => { if(confirm("Remove contract?")) updateSponsor({...manageData, contracts: manageData.contracts.filter(c => c.id !== contract.id)}); }}
+                                className="p-3 text-gray-300 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

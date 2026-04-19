@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GAIO CRM - Global AI Olympiad Management System
 
-## Getting Started
+A high-performance, specialized CRM built for the **Global AI Olympiad (GAIO)**. This platform centralizes governance, communication, and partnership management for a global scale operation.
 
-First, run the development server:
+## 🚀 Core Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 🛠️ Global Platform Governance (Admin)
+- **Dynamic Mail Infrastructure**: Multi-account SMTP/IMAP configuration grouped by categories (Organisers, Sponsors, Volunteers, etc.).
+- **Role-Based Access Control (RBAC)**: Fine-grained permissions for Super Admins, Admins, and Partners.
+- **System Logs**: Real-time tracking of administrative actions and security events.
 
-Open [http://localhost:4444](http://localhost:4444) with your browser to see the result.
+### 📧 Global Mailbox System
+- **Category-Based Routing**: Centralized mail handling for different departments.
+- **SMTP Switching**: Ability for admins to switch between multiple mail servers directly from the console.
+- **Modern UI**: Integrated Inbox, Sent, and Draft management with a focus on productivity.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 💬 Global Communication Hub
+- **Dynamic Channels**: Create 1-way (Broadcast) or 2-way (Interactive) channels.
+- **Permission Management**: Restrict messaging privileges to specific roles (e.g., "Sponsors Only" or "Organisers Only").
+- **Real-time Interaction**: Threaded replies, broadcast targets, and online status indicators.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🤝 Sponsor & Partner Management Hub
+- **Strategy & Plans**: Propose and track sponsorship tiers and strategic funding goals.
+- **Contract & Legals**: 
+  - **Admin Control**: Only admins can draft or upload contracts.
+  - **Digital Execution**: Partners can view, sign (via hand-signature pad), or reject agreements.
+  - **Registry**: Secure history of all signed legal documents.
+- **Dedicated Partner Chat**: Secure, direct communication line between admins and corporate partners.
 
-## Learn More
+## 💻 Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Framework**: [Next.js 15+](https://nextjs.org/) (App Router)
+- **Language**: [TypeScript](https://www.typescript.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State Management**: React Context API & LocalStorage Persistence (v2)
+- **Signature Engine**: HTML5 Canvas API for digital hand-signatures.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠️ Getting Started
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Prerequisites
+- Node.js 18.x or higher
+- npm or yarn
 
-## Deploy on Vercel
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-repo/gaio-crm.git
+   cd gaio-crm
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+   The application will be available at `http://localhost:4444`.
+
+## 📁 Project Structure
+
+- `src/app/admin`: System governance and mail infrastructure.
+- `src/app/communication`: Global chat and channel management.
+- `src/app/mailbox`: Centralized email client.
+- `src/app/sponsors`: Partner hub with legal and strategy modules.
+- `src/components`: Reusable UI components (Sidebar, Header, Charts).
+- `src/context`: Authentication and global state providers.
+
+## 🔐 Security & Permissions
+
+- **Super Admin**: Full access to infrastructure, logs, and legal drafting.
+- **Admin**: Manage partners, communication channels, and mail routing.
+- **Sponsor/Partner**: Access to their specific hub, contract signing, and strategy discussion.
+
+## 📜 License
+
+This project is proprietary and built specifically for the Global AI Olympiad. Unauthorized copying of this file, via any medium, is strictly prohibited.
+
+---
+**GAIO Global Operations Team**  
+*Building the future of AI through global competition.*
