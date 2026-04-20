@@ -3,15 +3,17 @@ const https = require('https');
 const API_KEY = 'gaio_prod_3bf9a2e8c1d45f0b8d7c2a1e6f9b4d3c';
 const BASE_URL = 'gaioevent.tech';
 
-async function fetchData(path) {
+async function fetchData(endpoint) {
   return new Promise((resolve) => {
+    // Structure: /gaio-api.php?endpoint=xxx&api_key=xxx
+    const path = `/gaio-api.php?endpoint=${endpoint}&api_key=${API_KEY}`;
+    
     const options = {
       hostname: BASE_URL,
       path: path,
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       },
       rejectUnauthorized: false 
     };
@@ -21,12 +23,14 @@ async function fetchData(path) {
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
         try {
-          resolve({ 
-            status: res.statusCode, 
-            data: data.startsWith('{') ? JSON.parse(data) : data 
-          });
+          if (data.trim().startsWith('<')) {
+            resolve({ status: res.statusCode, error: 'Received HTML instead of JSON', preview: data.substring(0, 100) });
+          } else {
+            const parsed = JSON.parse(data);
+            resolve({ status: res.statusCode, data: parsed });
+          }
         } catch (e) {
-          resolve({ status: res.statusCode, data: data, error: 'Parse Error' });
+          resolve({ status: res.statusCode, raw: data, error: 'Parse Error' });
         }
       });
     });
@@ -37,17 +41,23 @@ async function fetchData(path) {
 }
 
 async function run() {
-  console.log('Testing Authentication and Status...');
-  const status = await fetchData('/api/status');
-  console.log('Status Response:', JSON.stringify(status, null, 2));
-
-  console.log('\nTesting Sponsors Fetch...');
-  const sponsors = await fetchData('/api/sponsors');
-  console.log('Sponsors Response:', JSON.stringify(sponsors, null, 2));
+  console.log('--- GAIO REAL-TIME DATABASE VERIFICATION ---');
   
-  console.log('\nTesting Volunteers Fetch...');
-  const volunteers = await fetchData('/api/volunteers');
-  console.log('Volunteers Response:', JSON.stringify(volunteers, null, 2));
+  const endpoints = ['status', 'statistics', 'sponsors', 'volunteers'];
+  
+  for (const endpoint of endpoints) {
+    console.log(`\nFetching: ${endpoint}...`);
+    const result = await fetchData(endpoint);
+    console.log(`Status: ${result.status}`);
+    
+    if (result.data && result.data.status === 'success') {
+      console.log('✅ REAL DATA FETCHED SUCCESSFULLY!');
+      console.log(JSON.stringify(result.data.data, null, 2));
+    } else {
+      console.log('❌ FAILED');
+      console.log(result.error || result.data || 'Unknown error');
+    }
+  }
 }
 
 run();

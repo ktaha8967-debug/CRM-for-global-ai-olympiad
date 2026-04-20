@@ -30,26 +30,22 @@ export default function GlobalDashboard() {
   useEffect(() => {
     const fetchRealData = async () => {
       try {
-        const [sponsorsRes, volunteersRes, tendersRes] = await Promise.all([
-          fetch('/api/sponsors'),
-          fetch('/api/volunteers'),
+        const [statsRes, tendersRes] = await Promise.all([
+          fetch('/api/statistics'),
           fetch('/api/tenders')
         ]);
 
-        const sponsorsData = sponsorsRes.ok ? await sponsorsRes.json() : [];
-        const volunteersData = volunteersRes.ok ? await volunteersRes.json() : [];
+        const statsData = statsRes.ok ? await statsRes.json() : null;
         const tendersData = tendersRes.ok ? await tendersRes.json() : [];
 
-        // For counts that might not have endpoints yet, we fall back to localStorage or defaults
-        const countries = JSON.parse(localStorage.getItem('gaio_countries') || '[]');
-        const eventsData = JSON.parse(localStorage.getItem('gaio_events_core_simple_v2') || '{"events": []}');
-
-        setCounts({
-          countries: countries.length || 107,
-          sponsors: Array.isArray(sponsorsData) ? sponsorsData.length : 32,
-          events: eventsData?.events?.length || 145,
-          volunteers: Array.isArray(volunteersData) ? volunteersData.length : 856
-        });
+        if (statsData) {
+          setCounts({
+            countries: statsData.countries || 107,
+            sponsors: statsData.sponsors || 32,
+            events: statsData.events || 145,
+            volunteers: statsData.volunteers || 856
+          });
+        }
 
         setTenders(Array.isArray(tendersData) ? tendersData : []);
       } catch (error) {

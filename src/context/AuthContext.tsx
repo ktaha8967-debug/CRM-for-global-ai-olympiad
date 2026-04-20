@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 interface User {
   id: string;
@@ -39,15 +40,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('gaio_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    // Initial session check
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { user: sbUser } = session;
+          setUser({
+            id: sbUser.id,
+            name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'User',
+            email: sbUser.email || '',
+            role: sbUser.user_metadata?.role || (sbUser.email === 'admin@gaio.uk' ? 'SUPER_ADMIN' : 'USER'),
+            roles: sbUser.user_metadata?.roles || (sbUser.email === 'admin@gaio.uk' ? ['SUPER_ADMIN', 'GLOBAL_ADMIN'] : ['USER']),
+            allowedSections: sbUser.user_metadata?.allowedSections || (sbUser.email === 'admin@gaio.uk' ? [
+              "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
+              "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
+              "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
+              "Recognition", "Settings"
+            ] : ["Global Dashboard", "Settings"])
+          });
+        }
+      } catch (err) {
+        console.error("Error checking Supabase session:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const { user: sbUser } = session;
+        setUser({
+          id: sbUser.id,
+          name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'User',
+          email: sbUser.email || '',
+          role: sbUser.user_metadata?.role || (sbUser.email === 'admin@gaio.uk' ? 'SUPER_ADMIN' : 'USER'),
+          roles: sbUser.user_metadata?.roles || (sbUser.email === 'admin@gaio.uk' ? ['SUPER_ADMIN', 'GLOBAL_ADMIN'] : ['USER']),
+          allowedSections: sbUser.user_metadata?.allowedSections || (sbUser.email === 'admin@gaio.uk' ? [
+            "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
+            "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
+            "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
+            "Recognition", "Settings"
+          ] : ["Global Dashboard", "Settings"])
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
     const savedNotifs = localStorage.getItem('gaio_notifications_list');
     if (savedNotifs) {
       setNotifications(JSON.parse(savedNotifs));
     }
-    setIsLoading(false);
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const addNotification = (message: string, section: string) => {
@@ -115,73 +166,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router]);
 
   const login = async (email: string, pass: string) => {
-    // Simulated login logic
-    // Try to find in the latest multi-role system users first
-    const systemUsersV3 = JSON.parse(localStorage.getItem('gaio_system_users_v3') || '[]');
-    const systemUsersLegacy = JSON.parse(localStorage.getItem('gaio_system_users') || '[]');
-    
-    // Default super admins for first-time use
-    const defaultAdmins = [
-      {
-        id: "U-1",
-        name: "Super Admin",
-        email: "admin@gaio.uk",
-        password: "admin",
-        roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"],
-        role: "SUPER_ADMIN",
-        allowedSections: [
-          "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
-          "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
-          "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
-          "Recognition", "Settings"
-        ]
-      },
-      {
-        id: "U-X",
-        name: "Alexander Vance",
-        email: "a.vance@gaio.uk",
-        password: "admin",
-        roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"],
-        role: "SUPER_ADMIN",
-        allowedSections: [
-          "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
-          "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
-          "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
-          "Recognition", "Settings"
-        ]
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: pass,
+      });
+
+      if (error) {
+        console.error('Supabase login error:', error.message);
+        return false;
       }
-    ];
 
-    const users = systemUsersV3.length > 0 ? systemUsersV3 : (systemUsersLegacy.length > 0 ? systemUsersLegacy : defaultAdmins);
-    const foundUser = users.find((u: any) => u.email === email && (u.password === pass || pass === 'admin'));
-
-    if (foundUser) {
-      const userData: User = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role || (foundUser.roles && foundUser.roles[0]) || "USER",
-        roles: foundUser.roles || [foundUser.role].filter(Boolean),
-        allowedSections: foundUser.allowedSections || [
-          "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
-          "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
-          "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
-          "Recognition", "Settings"
-        ]
-      };
-      setUser(userData);
-      localStorage.setItem('gaio_user', JSON.stringify(userData));
-      router.push('/');
-      return true;
+      if (data.user) {
+        router.push('/');
+        return true;
+      }
+    } catch (err) {
+      console.error('Unexpected login error:', err);
     }
     return false;
   };
 
-  const logout = () => {
-    alert("Signing out...");
-    setUser(null);
-    localStorage.removeItem('gaio_user');
-    window.location.href = '/login';
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      router.push('/login');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   };
 
   return (

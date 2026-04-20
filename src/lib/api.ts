@@ -13,7 +13,9 @@ export async function gaioFetch(endpoint: string, options: RequestInit = {}) {
     console.warn('GAIO_BACKEND_API_KEY is not defined in environment variables.');
   }
 
-  const url = `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  // Use the dedicated API file for clean JSON response
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+  const url = `${API_URL}/gaio-api.php?endpoint=${cleanEndpoint}&api_key=${API_KEY}`;
   
   const headers = {
     'Authorization': `Bearer ${API_KEY}`,

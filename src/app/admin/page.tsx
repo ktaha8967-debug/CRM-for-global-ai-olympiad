@@ -28,6 +28,8 @@ import {
 const initialSystemUsers = [
   { id: "U-1", name: "Super Admin", email: "admin@gaio.uk", roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"], status: "Active", lastLogin: "Just Now" },
   { id: "U-X", name: "Alexander Vance", email: "a.vance@gaio.uk", password: "admin", roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"], status: "Active", lastLogin: "Just Now" },
+  { id: "U-S1", name: "Shaheer", email: "shr@gaio.com", password: "shaheer", roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"], status: "Active", lastLogin: "Just Now" },
+  { id: "U-Z1", name: "Zohaib", email: "zhb@gaio.com", password: "zohaib", roles: ["SUPER_ADMIN", "GLOBAL_ADMIN"], status: "Active", lastLogin: "Just Now" },
   { id: "U-2", name: "James Wilson", email: "james@teched.uk", roles: ["COUNTRY_DIRECTOR"], status: "Active", lastLogin: "1 hour ago" },
   { id: "U-3", name: "Sarah Jenkins", email: "s.jenkins@mit.edu", roles: ["VOLUNTEER_LEAD"], status: "Inactive", lastLogin: "3 days ago" },
   { id: "U-5", name: "Marco Rossi", email: "m.rossi@organiser.it", roles: ["ORGANISER", "EVENT_MANAGER"], status: "Active", lastLogin: "15 mins ago" },
@@ -1563,8 +1565,23 @@ export default function AdminDashboard() {
                       <input readOnly value={generatedInviteLink} className="flex-1 bg-gray-50 dark:bg-zinc-900 border-2 dark:border-zinc-800 rounded-xl px-4 py-3 font-bold text-xs text-blue-600" />
                       <button 
                         onClick={() => {
-                          navigator.clipboard.writeText(generatedInviteLink);
-                          alert("Link copied to clipboard!");
+                          if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(generatedInviteLink)
+                              .then(() => alert("Link copied to clipboard!"))
+                              .catch(() => alert("Failed to copy link."));
+                          } else {
+                            const textArea = document.createElement("textarea");
+                            textArea.value = generatedInviteLink;
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            try {
+                              document.execCommand("copy");
+                              alert("Link copied to clipboard!");
+                            } catch (err) {
+                              alert("Failed to copy link.");
+                            }
+                            document.body.removeChild(textArea);
+                          }
                         }}
                         className="bg-gray-900 dark:bg-white text-white dark:text-black px-6 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
                       >
