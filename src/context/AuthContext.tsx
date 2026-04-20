@@ -39,6 +39,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const getAdminAccess = (email: string | undefined) => {
+    const isAdminEmail = email === 'admin@gaio.uk' || email === 'admin@gaio.co.uk';
+    return {
+      role: isAdminEmail ? 'SUPER_ADMIN' : 'USER',
+      roles: isAdminEmail ? ['SUPER_ADMIN', 'GLOBAL_ADMIN'] : ['USER'],
+      allowedSections: isAdminEmail ? [
+        "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
+        "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
+        "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
+        "Recognition", "Settings", "Admin Console"
+      ] : ["Global Dashboard", "Settings"]
+    };
+  };
+
   useEffect(() => {
     // Initial session check
     const checkSession = async () => {
@@ -46,18 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const { user: sbUser } = session;
+          const adminRights = getAdminAccess(sbUser.email);
+          
           setUser({
             id: sbUser.id,
             name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'User',
             email: sbUser.email || '',
-            role: sbUser.user_metadata?.role || (sbUser.email === 'admin@gaio.uk' ? 'SUPER_ADMIN' : 'USER'),
-            roles: sbUser.user_metadata?.roles || (sbUser.email === 'admin@gaio.uk' ? ['SUPER_ADMIN', 'GLOBAL_ADMIN'] : ['USER']),
-            allowedSections: sbUser.user_metadata?.allowedSections || (sbUser.email === 'admin@gaio.uk' ? [
-              "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
-              "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
-              "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
-              "Recognition", "Settings"
-            ] : ["Global Dashboard", "Settings"])
+            role: sbUser.user_metadata?.role || adminRights.role,
+            roles: sbUser.user_metadata?.roles || adminRights.roles,
+            allowedSections: sbUser.user_metadata?.allowedSections || adminRights.allowedSections
           });
         }
       } catch (err) {
@@ -73,18 +84,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const { user: sbUser } = session;
+        const adminRights = getAdminAccess(sbUser.email);
+
         setUser({
           id: sbUser.id,
           name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'User',
           email: sbUser.email || '',
-          role: sbUser.user_metadata?.role || (sbUser.email === 'admin@gaio.uk' ? 'SUPER_ADMIN' : 'USER'),
-          roles: sbUser.user_metadata?.roles || (sbUser.email === 'admin@gaio.uk' ? ['SUPER_ADMIN', 'GLOBAL_ADMIN'] : ['USER']),
-          allowedSections: sbUser.user_metadata?.allowedSections || (sbUser.email === 'admin@gaio.uk' ? [
-            "Global Dashboard", "Global Communication", "Global Mailbox", "Country Network",
-            "Organiser Management", "Organiser Mailbox", "Sponsors & Partners", "Sponsor Mailbox",
-            "Tender Management", "Event Management", "Volunteer Network", "Volunteer Mailbox",
-            "Recognition", "Settings"
-          ] : ["Global Dashboard", "Settings"])
+          role: sbUser.user_metadata?.role || adminRights.role,
+          roles: sbUser.user_metadata?.roles || adminRights.roles,
+          allowedSections: sbUser.user_metadata?.allowedSections || adminRights.allowedSections
         });
       } else {
         setUser(null);
@@ -151,8 +159,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const currentSection = pathMap[pathname];
         
-        // If the section is known and not allowed, block access
-        // Note: We always allow access to Dashboard and Settings as fallback
         if (currentSection && 
             currentSection !== 'Global Dashboard' && 
             currentSection !== 'Settings' &&
