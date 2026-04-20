@@ -94,24 +94,26 @@ export default function AdminDashboard() {
   }
 
   // USER MANAGEMENT STATE
-  const [systemUsers, setSystemUsers] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('gaio_system_users_v3');
-      if (saved) {
-        const users = JSON.parse(saved);
-        return users.map((u: any) => ({
-          ...u,
-          allowedSections: u.allowedSections || (u.roles?.includes('SUPER_ADMIN') ? systemModules : ["Global Dashboard", "Settings"]),
-          roles: u.roles || (u.role ? [u.role] : [])
-        }));
-      }
+  const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  const [isUsersLoading, setIsUsersLoading] = useState(true);
+
+  const fetchUsers = async () => {
+    setIsUsersLoading(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSystemUsers(data);
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    } finally {
+      setIsUsersLoading(false);
     }
-    return initialSystemUsers.map(u => ({ 
-      ...u, 
-      allowedSections: u.roles?.includes('SUPER_ADMIN') ? systemModules : ["Global Dashboard", "Settings"],
-      roles: (u as any).roles || ((u as any).role ? [(u as any).role] : [])
-    }));
-  });
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   // PERMISSIONS MATRIX STATE
   const [permissionsMatrix, setPermissionsMatrix] = useState(() => {
@@ -390,47 +392,69 @@ export default function AdminDashboard() {
     u.roles.some((r: string) => r.toLowerCase().includes(userSearch.toLowerCase()))
   );
 
-  const handleUpdateUser = (e: React.FormEvent) => {
+  const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSystemUsers(systemUsers.map((u: any) => u.id === selectedUser.id ? selectedUser : u));
-    addLog(`Updated security clearance for ${selectedUser.name}`, "MEDIUM");
-    setIsRoleModalOpen(false);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selectedUser)
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      addLog(`Updated security clearance for ${selectedUser.name}`, "MEDIUM");
+      setIsRoleModalOpen(false);
+      fetchUsers();
+    } catch (err: any) {
+      alert(`Error updating user: ${err.message}`);
+    }
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.password || newUser.roles.length === 0) {
       alert("Please provide a password and select at least one role.");
       return;
     }
-    const createdUser = {
-      id: `U-${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      roles: newUser.roles,
-      allowedSections: newUser.allowedSections,
-      password: newUser.password,
-      status: "Active",
-      lastLogin: "Never"
-    };
-    setSystemUsers([createdUser, ...systemUsers]);
-    addLog(`Granted system access to ${newUser.name}`, "HIGH");
-    setIsAddUserModalOpen(false);
-    setNewUser({ 
-      name: "", 
-      email: "", 
-      roles: ["COUNTRY_DIRECTOR"], 
-      allowedSections: ["Global Dashboard", "Settings"],
-      password: "" 
-    });
+    
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      addLog(`Granted system access to ${newUser.name}`, "HIGH");
+      setIsAddUserModalOpen(false);
+      setNewUser({ 
+        name: "", 
+        email: "", 
+        roles: ["COUNTRY_DIRECTOR"], 
+        allowedSections: ["Global Dashboard", "Settings"],
+        password: "" 
+      });
+      fetchUsers();
+    } catch (err: any) {
+      alert(`Error creating user: ${err.message}`);
+    }
   };
 
-  const handleDeleteUser = (id: string) => {
+  const handleDeleteUser = async (id: string) => {
     if (confirm("Are you sure you want to completely remove this user from the system?")) {
-      const user = systemUsers.find((u: any) => u.id === id);
-      setSystemUsers(systemUsers.filter((u: any) => u.id !== id));
-      addLog(`Revoked system access for ${user?.name}`, "HIGH");
-      setIsRoleModalOpen(false);
+      try {
+        const res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        addLog(`Revoked system access`, "HIGH");
+        setIsRoleModalOpen(false);
+        fetchUsers();
+      } catch (err: any) {
+        alert(`Error deleting user: ${err.message}`);
+      }
     }
   };
 

@@ -5,8 +5,8 @@
  * Use this utility only in Server Components or API Routes.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_GAIO_API_URL || 'https://api.gaio.uk/v1';
-const API_KEY = process.env.GAIO_BACKEND_API_KEY;
+const API_URL = process.env.NEXT_PUBLIC_GAIO_API_URL || 'https://gaioevent.tech';
+const API_KEY = process.env.GAIO_BACKEND_API_KEY || 'gaio_prod_3bf9a2e8c1d45f0b8d7c2a1e6f9b4d3c';
 
 export async function gaioFetch(endpoint: string, options: RequestInit = {}) {
   if (!API_KEY) {
